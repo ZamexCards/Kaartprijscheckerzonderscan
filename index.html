@@ -178,8 +178,8 @@
 <section class="panel search-panel">
 <form id="searchForm">
 <div class="search-grid">
-  <div class="field"><label>Kaartnaam</label><input id="q" autocomplete="off" placeholder="bijv. Charizard ex"></div>
   <div class="field"><label>TCG-serie</label><select id="series"><option value="">Alle series</option></select></div>
+  <div class="field"><label>Kaartnaam</label><input id="q" autocomplete="off" placeholder="bijv. Charizard ex"></div>
   <div class="field set-combobox">
   <label>Set / setcode</label>
   <input id="set" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="setDropdown" placeholder="Typ setcode of kies een set…">
@@ -765,7 +765,7 @@ function zcLanguageLabel(){
   return zcSelectedLanguage();
 }
 
-const ZC_CATALOG_KEY='zamexcards_global_set_catalog_v8';
+const ZC_CATALOG_KEY='zamexcards_global_set_catalog_v9';
 const ZC_CATALOG_TTL=12*60*60*1000;
 const ZC_ALL_TCGDEX_LANGS=['en','ja','zh-tw','zh-cn','ko','de','fr','it','es','pt','nl'];
 let ZC_GLOBAL_CATALOG=[];
@@ -789,6 +789,9 @@ function zcMergeCatalogEntry(map,entry){
   if(!old){map.set(key,entry);return}
   old.aliases=[...new Set([...(old.aliases||[]),...(entry.aliases||[])])];
   if(!old.ptcgoCode&&entry.ptcgoCode)old.ptcgoCode=entry.ptcgoCode;
+  if(!old.releaseDate&&entry.releaseDate)old.releaseDate=entry.releaseDate;
+  if(!old.series&&entry.series)old.series=entry.series;
+  if(!old.code&&entry.code)old.code=entry.code;
 }
 async function zcLoadGlobalCatalog(force=false){
   if(ZC_CATALOG_PROMISE&&!force)return ZC_CATALOG_PROMISE;
@@ -796,7 +799,7 @@ async function zcLoadGlobalCatalog(force=false){
     if(!force){
       try{
         const cached=JSON.parse(localStorage.getItem(ZC_CATALOG_KEY)||'null');
-        if(cached?.at && Array.isArray(cached.items) && Date.now()-cached.at<ZC_CATALOG_TTL){
+        if(cached?.at && Array.isArray(cached.items) && cached.items.length>20 && Date.now()-cached.at<ZC_CATALOG_TTL){
           ZC_GLOBAL_CATALOG=cached.items;
           return ZC_GLOBAL_CATALOG;
         }
@@ -834,29 +837,11 @@ async function zcLoadGlobalCatalog(force=false){
       }catch(e){}
     }));
 
-    // Voeg de officiële TCG-serie toe aan Aziatische sets. De series-endpoints
-    // leveren hun sets in historische volgorde, zodat nieuwere series en sets
-    // ook zonder releasedatum bovenaan kunnen worden getoond.
-    await Promise.all(['ja','zh-cn','zh-tw','ko'].map(async lang=>{
-      try{
-        const series=await zcFetchJson(`https://api.tcgdex.net/v2/${lang}/series`,9000);
-        await Promise.all((series||[]).map(async (brief,seriesIndex)=>{
-          try{
-            const full=await zcFetchJson(`https://api.tcgdex.net/v2/${lang}/series/${encodeURIComponent(brief.id)}`,7000);
-            for(const s of full?.sets||[]){
-              const entry=map.get(`${lang}|${s.id}`);
-              if(entry){entry.series=String(full.name||brief.name||brief.id);entry.seriesIndex=seriesIndex;entry.setIndex=(full.sets||[]).findIndex(x=>x.id===s.id)}
-            }
-          }catch(e){}
-        }));
-      }catch(e){}
-    }));
-
-    // Pokémon TCG API adds official international PTCGO codes and catches English sets
-    // that have not propagated to every TCGdex locale yet.
+    // De officiële openbare setdata voegt alle Engelse setcodes en releasedata toe.
+    // Dit bronbestand ondersteunt rechtstreeks browsergebruik op GitHub Pages.
     try{
-      const d=await zcFetchJson('https://api.pokemontcg.io/v2/sets?orderBy=-releaseDate&pageSize=250',10000);
-      for(const s of d.data||[]){
+      const d=await zcFetchJson('https://raw.githubusercontent.com/PokemonTCG/pokemon-tcg-data/master/sets/en.json',12000);
+      for(const s of Array.isArray(d)?d:[]){
         zcMergeCatalogEntry(map,{
           source:'pokemontcg',
           lang:'en',
@@ -869,6 +854,19 @@ async function zcLoadGlobalCatalog(force=false){
         });
       }
     }catch(e){}
+
+    // Belangrijkste promo-series blijven altijd beschikbaar, ook wanneer een
+    // externe catalogus tijdelijk niet bereikbaar is.
+    [
+      ['mep','Mega Evolution Black Star Promos','Mega Evolution','MEP'],
+      ['svp','Scarlet & Violet Black Star Promos','Scarlet & Violet','SVP'],
+      ['swshp','SWSH Black Star Promos','Sword & Shield','SWSH'],
+      ['smp','SM Black Star Promos','Sun & Moon','SM'],
+      ['xyp','XY Black Star Promos','XY','XY'],
+      ['bwp','BW Black Star Promos','Black & White','BW'],
+      ['dpp','DP Black Star Promos','Diamond & Pearl','DP'],
+      ['np','Nintendo Black Star Promos','EX','NP']
+    ].forEach(([id,name,series,ptcgoCode])=>zcMergeCatalogEntry(map,{source:'fallback',lang:'en',id,name,series,ptcgoCode,releaseDate:'',aliases:[id,name,ptcgoCode]}));
 
     ZC_GLOBAL_CATALOG=[...map.values()];
     try{localStorage.setItem(ZC_CATALOG_KEY,JSON.stringify({at:Date.now(),items:ZC_GLOBAL_CATALOG}))}catch(e){}
@@ -892,6 +890,14 @@ function zcPrimarySetLanguages(){
   return ['en'];
 }
 function zcDateValue(v){const t=Date.parse(String(v||''));return Number.isFinite(t)?t:0}
+function zcIsPromoSet(entry){
+  const id=String(entry?.id||'').toLowerCase();
+  const code=String(entry?.ptcgoCode||entry?.code||'').toUpperCase();
+  const name=zcCatalogNorm(entry?.name||'');
+  const knownIds=['mep','svp','swshp','smp','xyp','bwp','dpp','np','basep','miscp'];
+  const knownCodes=['MEP','SVP','SWSH','SM','XY','BW','DP','NP'];
+  return knownIds.includes(id)||knownCodes.includes(code)||/promo|promotional|black star/.test(name);
+}
 function zcIsReleasedSet(entry){
   const t=zcDateValue(entry?.releaseDate);
   if(!t)return true;
@@ -998,6 +1004,8 @@ function zcSetDropdownItems(){
   // Sets zonder releasedatum (bijv. sommige promo/special sets)
   // komen na de sets met een bekende releasedatum.
   entries.sort((a,b)=>{
+    const promoOrder=Number(zcIsPromoSet(a))-Number(zcIsPromoSet(b));
+    if(promoOrder)return promoOrder;
     const da=zcDateValue(a.releaseDate);
     const db=zcDateValue(b.releaseDate);
 
@@ -1057,7 +1065,7 @@ function zcRenderSetDropdown(){
     });
     if(exact.length)items=exact;
   }
-  items=items.slice(0,120);
+  items=items.slice(0,400);
   box.innerHTML=items.length?items.map(e=>{
     let code=zcSetChoiceValue(e);
     if(zcSelectedLanguage()==='English')code=String(code).toUpperCase();
