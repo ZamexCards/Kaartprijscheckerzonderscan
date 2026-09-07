@@ -162,6 +162,8 @@
 .price-row.secondary-price span{font-size:13px;color:#a9bfd2}
 .price-row.secondary-price strong{font-size:15px;color:#9fc9e8;font-weight:700}
 .item-eighty{margin-top:3px;color:#65df5d;font-size:10px;font-weight:800;white-space:nowrap}
+@keyframes zcListHighlight{0%,100%{box-shadow:var(--shadow)}35%{box-shadow:0 0 0 4px rgba(91,223,103,.38),0 0 34px rgba(91,223,103,.42)}}
+.list-panel.list-highlight{animation:zcListHighlight 1.15s ease}
 </style>
 <!-- ZamexCards Price Checker v13.0 server-side AI Vision scanner -->
 </head>
@@ -176,7 +178,7 @@
       <div class="brand-sub">Price Checker</div>
     </div>
   </div>
-  <div class="top-actions"><button class="btn" onclick="document.getElementById('favoritesPanel').scrollIntoView()">♡ Favorieten</button><button class="btn" onclick="showToast('Kies een serie, setcode, kaartnaam of kaartnummer. Je kunt deze zoekvelden ook combineren.')">? Help</button></div>
+  <div class="top-actions"><button class="btn" type="button" onclick="openFavorites()">♡ Favorieten</button><button class="btn" onclick="showToast('Kies een serie, setcode, kaartnaam of kaartnummer. Je kunt deze zoekvelden ook combineren.')">? Help</button></div>
 </header>
 
 <section class="panel search-panel">
@@ -1499,6 +1501,14 @@ function openAlert(id){selectedAlertCard=currentCards.find(x=>x.id===id)||select
 function closeAlert(){$('alertModal').classList.remove('open');selectedAlertCard=null;$('alertTarget').value=''}
 $('saveAlert').onclick=()=>{if(!selectedAlertCard||!$('alertTarget').value)return;const a=store.alerts.filter(x=>x.id!==selectedAlertCard.id);a.unshift({id:selectedAlertCard.id,name:selectedAlertCard.name,target:Number($('alertTarget').value),current:selectedAlertCard.prices?.trendPrice});store.alerts=a;closeAlert();showToast('Prijsalarm opgeslagen in deze browser.')}
 function showToast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(showToast.t);showToast.t=setTimeout(()=>e.classList.remove('show'),2800)}
+function openFavorites(){
+  const panel=$('favoritesPanel');if(!panel)return;
+  panel.scrollIntoView({behavior:'smooth',block:'start'});
+  panel.classList.remove('list-highlight');
+  void panel.offsetWidth;
+  panel.classList.add('list-highlight');
+  setTimeout(()=>panel.classList.remove('list-highlight'),1300);
+}
 $('variant').addEventListener('change',()=>{if(selectedCard)renderDetail();});
 $('graded').addEventListener('change',()=>$('gradingOptions').classList.toggle('show',$('graded').value==='yes'));$('searchForm').addEventListener('submit',searchCards);$('clearSearch').onclick=()=>{['q','set','number'].forEach(id=>$(id).value='');$('series').value='';$('rarity').value='';$('variant').value='Automatisch';$('language').value='English';$('condition').value='Near Mint';$('graded').value='no';$('gradingOptions').classList.remove('show');$('q').focus()};$('clearAll').onclick=()=>{if(confirm('Weet je zeker dat je de hele kaartenlijst wilt leegmaken?')){store.favs=[];renderFavorites()}};
 
