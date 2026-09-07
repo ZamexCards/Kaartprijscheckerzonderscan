@@ -162,8 +162,6 @@
 .price-row.secondary-price span{font-size:13px;color:#a9bfd2}
 .price-row.secondary-price strong{font-size:15px;color:#9fc9e8;font-weight:700}
 .item-eighty{margin-top:3px;color:#65df5d;font-size:10px;font-weight:800;white-space:nowrap}
-@keyframes zcListHighlight{0%,100%{box-shadow:var(--shadow)}35%{box-shadow:0 0 0 4px rgba(91,223,103,.38),0 0 34px rgba(91,223,103,.42)}}
-.list-panel.list-highlight{animation:zcListHighlight 1.15s ease}
 .bottom-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:20px 0 6px}
 .ui-language-switch{margin-left:auto;display:flex;align-items:center;gap:7px;border:1px solid #31587b;background:#082746;border-radius:10px;padding:6px 9px;font-weight:900}
 .ui-language-switch button{border:0;background:transparent;color:#9fb4c5;font:inherit;cursor:pointer;padding:5px 7px;border-radius:6px}
@@ -254,7 +252,7 @@
   <div class="list-tools"><button class="btn danger sm" id="clearAll">🗑 Clear all</button></div>
 </aside>
 </div>
-<div class="bottom-actions"><button class="btn" type="button" onclick="openFavorites()">♡ Favorieten</button><button class="btn" type="button" onclick="showToast('Kies een serie, setcode, kaartnaam of kaartnummer. Je kunt deze zoekvelden ook combineren.')">? Help</button></div>
+<div class="bottom-actions"><button class="btn" type="button" onclick="showToast('Kies een serie, setcode, kaartnaam of kaartnummer. Je kunt deze zoekvelden ook combineren.')">? Help</button></div>
 </div>
 
 <div class="modal" id="alertModal"><div class="modal-box alert-form"><h2>Prijsalarm instellen</h2><div id="alertCardName"></div><input id="alertTarget" type="number" min="0" step="0.01" placeholder="Waarschuw onder prijs, bijv. 25.00"><div class="scanner-actions"><button class="btn primary" id="saveAlert">Opslaan</button><button class="btn" onclick="closeAlert()">Annuleren</button></div></div></div>
@@ -269,7 +267,7 @@ const ZC_UI_TEXT=[
   ['TCG-serie / set','TCG series / set'],['Alle series','All sets'],['Kaartnaam','Card name'],['Set / setcode','Set / set code'],['Kaartnummer','Card number'],
   ['Uitvoering','Finish'],['Taal','Card language'],['Conditie','Condition'],['Grading','Grading'],['Rarity','Rarity'],['Gradingbedrijf','Grading company'],['Grade','Grade'],
   ['Automatisch','Automatic'],['Basic / Normaal','Basic / Normal'],['Alle rarities','All rarities'],['Niet graded','Not graded'],
-  ['Zoek mijn kaart','Search card'],['Clear zoeken','Clear search'],['Favorieten','Favorites'],['Help','Help'],
+  ['Zoek mijn kaart','Search card'],['Clear zoeken','Clear search'],['Help','Help'],
   ['Jouw kaartenlijst','Your card list'],['Nog geen kaarten toegevoegd.','No cards added yet.'],['80% van totaal','80% of total'],['Clear all','Clear all'],
   ['soorten','types'],['kaarten','cards'],['Totaal (','Total ('],['kaarten)','cards)'],
   ['Zoek een Pokémon TCG-kaart.','Search for a Pokémon TCG card.'],['De gevonden kaart, uitvoering en prijsinformatie verschijnen hier.','The card, finish and price information will appear here.'],
@@ -302,7 +300,7 @@ function zcTranslatePage(){
   setText(document.querySelector('#searchForm button[type="submit"]'),en?'⌕ Search card':'⌕ Zoek mijn kaart');
   setText($('clearSearch'),en?'Clear search':'Clear zoeken');setText($('clearAll'),'🗑 Clear all');
   setText(document.querySelector('#favoritesPanel .section-title h2'),en?'💚 Your card list':'💚 Jouw kaartenlijst');
-  const bottomButtons=document.querySelectorAll('.bottom-actions button');setText(bottomButtons[0],en?'♡ Favorites':'♡ Favorieten');setText(bottomButtons[1],'? Help');
+  const helpButton=document.querySelector('.bottom-actions button');setText(helpButton,'? Help');
   const languageNames={English:['🇬🇧 Engels','🇬🇧 English'],Japanese:['🇯🇵 Japans','🇯🇵 Japanese'],Chinese:['🇨🇳 Chinees','🇨🇳 Chinese'],Korean:['🇰🇷 Koreaans','🇰🇷 Korean']};
   for(const option of $('language')?.options||[]){const pair=languageNames[option.value];if(pair)setText(option,pair[en?1:0])}
   for(const group of document.querySelectorAll('#series optgroup')){if(group.label==='Sets – newest first'||group.label==='Sets – nieuwste bovenaan'){const label=en?'Sets – newest first':'Sets – nieuwste bovenaan';if(group.label!==label)group.label=label}}
@@ -544,16 +542,18 @@ function zcCurrentMarketForSelection(card,selectedVariant){
   if(wanted==='Automatisch'){
     for(const variant of variants){
       const price=zcCurrentMarketFromPricing(variant.pricing,variant.type!=='normal'||!!variant.foil);
-      if(price!=null)return price;
+      if(price!=null)return price*.95;
     }
-    return zcCurrentMarketFromPricing(card?.tcgdexPricing,false) ?? zcCurrentMarketFromPricing(card?.tcgdexPricing,true);
+    const price=zcCurrentMarketFromPricing(card?.tcgdexPricing,false) ?? zcCurrentMarketFromPricing(card?.tcgdexPricing,true);
+    return price==null?null:price*.95;
   }
   const exact=variants.find(v=>zcFinishLabel(v)===wanted);
   if(exact){
     const price=zcCurrentMarketFromPricing(exact.pricing,exact.type!=='normal'||!!exact.foil);
-    if(price!=null)return price;
+    if(price!=null)return price*.95;
   }
-  return zcCurrentMarketFromPricing(card?.tcgdexPricing,!['Basic / Normaal','Standard'].includes(wanted));
+  const price=zcCurrentMarketFromPricing(card?.tcgdexPricing,!['Basic / Normaal','Standard'].includes(wanted));
+  return price==null?null:price*.95;
 }
 
 function zcTcgplayerVariantBlock(pricing,selectedVariant='Standard'){
@@ -1558,14 +1558,6 @@ function openAlert(id){selectedAlertCard=currentCards.find(x=>x.id===id)||select
 function closeAlert(){$('alertModal').classList.remove('open');selectedAlertCard=null;$('alertTarget').value=''}
 $('saveAlert').onclick=()=>{if(!selectedAlertCard||!$('alertTarget').value)return;const a=store.alerts.filter(x=>x.id!==selectedAlertCard.id);a.unshift({id:selectedAlertCard.id,name:selectedAlertCard.name,target:Number($('alertTarget').value),current:selectedAlertCard.prices?.trendPrice});store.alerts=a;closeAlert();showToast('Prijsalarm opgeslagen in deze browser.')}
 function showToast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(showToast.t);showToast.t=setTimeout(()=>e.classList.remove('show'),2800)}
-function openFavorites(){
-  const panel=$('favoritesPanel');if(!panel)return;
-  panel.scrollIntoView({behavior:'smooth',block:'start'});
-  panel.classList.remove('list-highlight');
-  void panel.offsetWidth;
-  panel.classList.add('list-highlight');
-  setTimeout(()=>panel.classList.remove('list-highlight'),1300);
-}
 $('variant').addEventListener('change',()=>{if(selectedCard)renderDetail();});
 $('graded').addEventListener('change',()=>$('gradingOptions').classList.toggle('show',$('graded').value==='yes'));$('searchForm').addEventListener('submit',searchCards);$('clearSearch').onclick=()=>{['q','set','number'].forEach(id=>$(id).value='');$('series').value='';$('rarity').value='';$('variant').value='Automatisch';$('language').value='English';$('condition').value='Near Mint';$('graded').value='no';$('gradingOptions').classList.remove('show');$('q').focus()};$('clearAll').onclick=()=>{if(confirm('Weet je zeker dat je de hele kaartenlijst wilt leegmaken?')){store.favs=[];renderFavorites()}};
 
