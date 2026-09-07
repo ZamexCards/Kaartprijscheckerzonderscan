@@ -273,7 +273,11 @@ function drawChart(canvas,values){if(!canvas)return;const ratio=devicePixelRatio
 function renderStrip(){const el=$('resultsStrip');if(currentCards.length<=1){el.innerHTML='';return}el.innerHTML=currentCards.map((c,i)=>`<button class="result-chip ${selectedCard?.id===c.id?'active':''}" onclick="selectCard(${i})">${imageTag(c)}<span><b>${esc(c.name)}</b><br>${esc(c.set)} #${esc(c.number)}${c.variantLabel?` · ${esc(c.variantLabel)}`:''}</span></button>`).join('')}
 function selectCard(i){selectedCard=currentCards[i];renderStrip();renderDetail()}
 function sellerRows(c){return '<div class="placeholder" style="padding:22px 10px">Verkoperprijzen zijn nog niet beschikbaar via de huidige prijsbron.</div>'}
-function renderDetail(){const c=selectedCard,el=$('detailPanel');if(!c){el.innerHTML='<div class="placeholder"><strong>Geen kaart geselecteerd.</strong></div>';return}const selectedVariant=$('variant').value,best=zcBestVisiblePrice(c,selectedVariant),avg=zcAvg30ForSelection(c,selectedVariant),sourceNote=best.value!=null?`<div style="font-size:12px;color:#8fb3cc;margin-top:10px">Bron: ${esc(best.source)}${best.currency==='USD'?' · prijs wordt in dollars getoond':''}</div>`:'<div style="font-size:12px;color:#ffcf7a;margin-top:10px">Voor deze kaart is bij de gekoppelde bronnen nog geen betrouwbare prijs beschikbaar.</div>';c.prices={...(c.prices||zcNoPrice()),average30Days:avg,fallbackMarket:best.value,fallbackCurrency:best.currency};el.innerHTML=`<div class="detail-grid"><div class="card-art">${imageTag(c)}<div class="zoom">⌕ Grotere afbeelding</div></div><div><div class="card-name"><div><h1>${esc(c.name)}</h1><div class="sub">${esc(c.set)} – ${esc(c.number)}</div></div><button class="btn sm" onclick="addSelectedCard()">♡</button></div><div class="info-box"><div class="info-row"><span>Rarity</span><strong>${esc(c.rarity||'Onbekend')}</strong></div><div class="info-row"><span>Set</span><strong>${esc(c.set)}</strong></div><div class="info-row"><span>Nummer</span><strong>${esc(c.number)}</strong></div><div class="info-row"><span>Uitvoering</span><strong>${esc(zcResolvedVariantLabel(c,selectedVariant))}</strong></div><div class="info-row"><span>Taal</span><strong>${esc($('language').selectedOptions[0].text.replace(/^..\s/,''))}</strong></div><div class="info-row"><span>Conditie</span><strong>${esc($('condition').value)}</strong></div><div class="info-row"><span>Graded</span><strong>${$('graded').value==='yes'?esc($('gradingCompany').value+' '+$('grade').value):'Niet graded'}</strong></div></div><div class="detail-actions"><button class="btn primary" onclick="addSelectedCard()">+ Voeg toe aan lijst</button></div></div><div class="prices-column"><div class="price-box"><div class="price-row primary-price"><span>${esc(best.label)}</span><strong>${best.value!=null?money(best.value,best.currency):'Niet beschikbaar'}</strong></div>${sourceNote}</div></div></div>`}
+function zcSecondaryPriceRow(avg,best){
+  if(avg==null||best.label==='Gemiddelde prijs (30 dagen)')return '';
+  return `<div class="price-row"><span>Gemiddelde prijs (30 dagen)</span><strong>${money(avg,'EUR')}</strong></div>`;
+}
+function renderDetail(){const c=selectedCard,el=$('detailPanel');if(!c){el.innerHTML='<div class="placeholder"><strong>Geen kaart geselecteerd.</strong></div>';return}const selectedVariant=$('variant').value,best=zcBestVisiblePrice(c,selectedVariant),avg=zcAvg30ForSelection(c,selectedVariant),sourceNote=best.value!=null?`<div style="font-size:12px;color:#8fb3cc;margin-top:10px">Bron: ${esc(best.source)}${best.currency==='USD'?' · prijs wordt in dollars getoond':''}</div>`:'<div style="font-size:12px;color:#ffcf7a;margin-top:10px">Voor deze kaart is bij de gekoppelde bronnen nog geen betrouwbare prijs beschikbaar.</div>';c.prices={...(c.prices||zcNoPrice()),average30Days:avg,currentMarket:(best.currency==='EUR'?best.value:null),fallbackMarket:best.value,fallbackCurrency:best.currency};el.innerHTML=`<div class="detail-grid"><div class="card-art">${imageTag(c)}<div class="zoom">⌕ Grotere afbeelding</div></div><div><div class="card-name"><div><h1>${esc(c.name)}</h1><div class="sub">${esc(c.set)} – ${esc(c.number)}</div></div><button class="btn sm" onclick="addSelectedCard()">♡</button></div><div class="info-box"><div class="info-row"><span>Rarity</span><strong>${esc(c.rarity||'Onbekend')}</strong></div><div class="info-row"><span>Set</span><strong>${esc(c.set)}</strong></div><div class="info-row"><span>Nummer</span><strong>${esc(c.number)}</strong></div><div class="info-row"><span>Uitvoering</span><strong>${esc(zcResolvedVariantLabel(c,selectedVariant))}</strong></div><div class="info-row"><span>Taal</span><strong>${esc($('language').selectedOptions[0].text.replace(/^..\s/,''))}</strong></div><div class="info-row"><span>Conditie</span><strong>${esc($('condition').value)}</strong></div><div class="info-row"><span>Graded</span><strong>${$('graded').value==='yes'?esc($('gradingCompany').value+' '+$('grade').value):'Niet graded'}</strong></div></div><div class="detail-actions"><button class="btn primary" onclick="addSelectedCard()">+ Voeg toe aan lijst</button></div></div><div class="prices-column"><div class="price-box"><div class="price-row primary-price"><span>${esc(best.label)}</span><strong>${best.value!=null?money(best.value,best.currency):'Niet beschikbaar'}</strong></div>${zcSecondaryPriceRow(avg,best)}${sourceNote}</div></div></div>`}
 const SET_CODE_TO_ID={
   SVP:'svp',SWSH:'swshp',SWSHP:'swshp',SMP:'smp',SM:'smp',
   XYP:'xyp',XY:'xyp',BWP:'bwp',BW:'bwp',DPP:'dpp',DP:'dpp',NP:'np'
@@ -381,6 +385,23 @@ function zcAvg30FromPricing(pricing,isFoil=false){
   const n=Number(raw);
   return Number.isFinite(n)&&n>0?n:null;
 }
+function zcCurrentMarketFromPricing(pricing,isFoil=false){
+  const p=pricing?.cardmarket||pricing||null;
+  if(!p)return null;
+  const pick=(foilKey,baseKey)=>{
+    const foil=Number(p[foilKey]);
+    if(isFoil&&Number.isFinite(foil)&&foil>0)return foil;
+    const base=Number(p[baseKey]);
+    return Number.isFinite(base)&&base>0?base:null;
+  };
+  // De mediaan van trend, 1 dag en 7 dagen volgt de actuele markt beter dan
+  // avg30 en negeert tegelijk één tijdelijke uitschieter.
+  return zcMedian([
+    pick('trend-holo','trend'),
+    pick('avg1-holo','avg1'),
+    pick('avg7-holo','avg7')
+  ]);
+}
 
 function zcNormText(v=''){
   return String(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -454,6 +475,23 @@ function zcAvg30ForSelection(card,selectedVariant){
   const foilWanted=!['Basic / Normaal','Standard'].includes(wanted);
   return zcAvg30FromPricing(card?.tcgdexPricing,foilWanted);
 }
+function zcCurrentMarketForSelection(card,selectedVariant){
+  const variants=card?.variantsDetailed||[];
+  const wanted=selectedVariant||'Automatisch';
+  if(wanted==='Automatisch'){
+    for(const variant of variants){
+      const price=zcCurrentMarketFromPricing(variant.pricing,variant.type!=='normal'||!!variant.foil);
+      if(price!=null)return price;
+    }
+    return zcCurrentMarketFromPricing(card?.tcgdexPricing,false) ?? zcCurrentMarketFromPricing(card?.tcgdexPricing,true);
+  }
+  const exact=variants.find(v=>zcFinishLabel(v)===wanted);
+  if(exact){
+    const price=zcCurrentMarketFromPricing(exact.pricing,exact.type!=='normal'||!!exact.foil);
+    if(price!=null)return price;
+  }
+  return zcCurrentMarketFromPricing(card?.tcgdexPricing,!['Basic / Normaal','Standard'].includes(wanted));
+}
 
 function zcTcgplayerVariantBlock(pricing,selectedVariant='Standard'){
   const p=pricing?.tcgplayer||pricing||null;
@@ -473,6 +511,8 @@ function zcTcgplayerMarket(pricing,selectedVariant='Standard'){
   return Number.isFinite(n)&&n>0?n:null;
 }
 function zcBestVisiblePrice(card,selectedVariant='Standard'){
+  const current=zcCurrentMarketForSelection(card,selectedVariant);
+  if(current!=null)return {value:current,currency:'EUR',label:'Actuele marktwaarde',source:'TCGdex actuele marktgegevens · mediaan van prijstrend, 1 dag en 7 dagen'};
   const avg=zcAvg30ForSelection(card,selectedVariant);
   if(avg!=null)return {value:avg,currency:'EUR',label:'Gemiddelde prijs (30 dagen)',source:'TCGdex Europese marktfeed'};
   const market=zcTcgplayerMarket(card?.tcgplayerPricing,selectedVariant);
@@ -481,10 +521,12 @@ function zcBestVisiblePrice(card,selectedVariant='Standard'){
 }
 function zcMarketPricesFromTcgdex(card){
   const avg=zcAvg30ForSelection(card,'Standard');
+  const current=zcCurrentMarketForSelection(card,'Standard');
   return{
     fromPrice:null,
     trendPrice:null,
     average30Days:avg,
+    currentMarket:current,
     psa10Price:null,
     movement:null,
     cheapestDutchSeller:null,
@@ -1398,7 +1440,8 @@ function zcValidateCardPricing(card){
   if(!card)return card;
   const variant=document.getElementById('variant')?.value||'Standard';
   const safe=zcSafeAvg30(card,variant);
-  card.prices={...(card.prices||zcNoPrice()),average30Days:safe,isReal:safe!=null};
+  const current=zcCurrentMarketForSelection(card,variant);
+  card.prices={...(card.prices||zcNoPrice()),average30Days:safe,currentMarket:current,isReal:current!=null||safe!=null};
   if(safe==null){
     card.prices.source='unavailable';
   }
@@ -1435,7 +1478,7 @@ function addFav(id){
   const d=details();
   const best=zcBestVisiblePrice(c,d.variant);
   const avg=zcAvg30ForSelection(c,d.variant);
-  const prices={...(c.prices||zcNoPrice()),average30Days:avg,fallbackMarket:best.value,fallbackCurrency:best.currency,fallbackLabel:best.label};
+  const prices={...(c.prices||zcNoPrice()),average30Days:avg,currentMarket:(best.currency==='EUR'?best.value:null),fallbackMarket:best.value,fallbackCurrency:best.currency,fallbackLabel:best.label};
   const listId=[c.id,d.variant,d.language,d.condition,d.graded?d.gradingCompany+d.grade:'raw'].join('|');
   const favs=store.favs;
   const old=favs.find(x=>x.listId===listId);
@@ -1447,7 +1490,7 @@ function addFav(id){
 }
 function changeQty(id,delta){const favs=store.favs,item=favs.find(x=>(x.listId||x.id)===id);if(!item)return;item.quantity=Math.max(1,(Number(item.quantity)||1)+delta);store.favs=favs;renderFavorites()}
 function removeFav(id){store.favs=store.favs.filter(x=>(x.listId||x.id)!==id);renderFavorites()}
-function renderFavorites(){const f=store.favs.map(x=>({...x,quantity:Math.max(1,Number(x.quantity)||1)})),priceOf=x=>{const v=x.prices?.average30Days;return(v===null||v===undefined||!Number.isFinite(Number(v)))?null:Number(v)},visible=x=>{const a=priceOf(x);if(a!=null)return{v:a,c:'EUR',label:'gemiddeld 30 dagen'};const v=x.prices?.fallbackMarket,c=x.prices?.fallbackCurrency||'USD';return(v===null||v===undefined||!Number.isFinite(Number(v)))?{v:null,c:'EUR',label:'geen prijsdata'}:{v:Number(v),c,label:'actuele marktprijs'}},totalQty=f.reduce((s,x)=>s+x.quantity,0),total=f.reduce((s,x)=>{const v=priceOf(x);return s+(v===null?0:v*x.quantity)},0);$('uniqueCount').textContent=f.length;$('favCount').textContent=totalQty;$('totalQty').textContent=totalQty;$('grandTotal').textContent=euro(total);$('eightyTotal').textContent=euro(total*.8);$('favorites').innerHTML=f.length?f.map(x=>{const p=visible(x),totalItem=p.v===null?null:p.v*x.quantity;return `<div class="mini">${imageTag(x)}<div><h3>${esc(x.name)}</h3><div class="mini-meta">${esc(x.number)} · ${esc(x.variant||'Standard')}<br>${esc(x.language||'English')} · ${x.graded?esc((x.gradingCompany||'PSA')+' '+(x.grade||'10')):esc(x.condition||'Near Mint')}</div></div><div class="mini-right"><div><strong>${p.v===null?'Niet beschikbaar':money(p.v,p.c)}</strong><small>${p.label}${p.c==='USD'?' · USD':''}</small></div><div class="qty"><button class="btn sm" onclick="changeQty('${esc(x.listId||x.id)}',-1)">−</button><span>${x.quantity}x</span><button class="btn sm" onclick="changeQty('${esc(x.listId||x.id)}',1)">+</button><button class="btn danger sm" onclick="removeFav('${esc(x.listId||x.id)}')">×</button></div><div class="item-total">Totaal: ${totalItem===null?'Niet beschikbaar':money(totalItem,p.c)}</div></div></div>`}).join(''):'<div class="empty-list">Nog geen kaarten toegevoegd.</div>'}
+function renderFavorites(){const f=store.favs.map(x=>({...x,quantity:Math.max(1,Number(x.quantity)||1)})),priceOf=x=>{const v=x.prices?.currentMarket ?? x.prices?.average30Days;return(v===null||v===undefined||!Number.isFinite(Number(v)))?null:Number(v)},visible=x=>{const a=priceOf(x);if(a!=null)return{v:a,c:'EUR',label:x.prices?.currentMarket!=null?'actuele marktwaarde':'gemiddeld 30 dagen'};const v=x.prices?.fallbackMarket,c=x.prices?.fallbackCurrency||'USD';return(v===null||v===undefined||!Number.isFinite(Number(v)))?{v:null,c:'EUR',label:'geen prijsdata'}:{v:Number(v),c,label:'actuele marktprijs'}},totalQty=f.reduce((s,x)=>s+x.quantity,0),total=f.reduce((s,x)=>{const v=priceOf(x);return s+(v===null?0:v*x.quantity)},0);$('uniqueCount').textContent=f.length;$('favCount').textContent=totalQty;$('totalQty').textContent=totalQty;$('grandTotal').textContent=euro(total);$('eightyTotal').textContent=euro(total*.8);$('favorites').innerHTML=f.length?f.map(x=>{const p=visible(x),totalItem=p.v===null?null:p.v*x.quantity;return `<div class="mini">${imageTag(x)}<div><h3>${esc(x.name)}</h3><div class="mini-meta">${esc(x.number)} · ${esc(x.variant||'Standard')}<br>${esc(x.language||'English')} · ${x.graded?esc((x.gradingCompany||'PSA')+' '+(x.grade||'10')):esc(x.condition||'Near Mint')}</div></div><div class="mini-right"><div><strong>${p.v===null?'Niet beschikbaar':money(p.v,p.c)}</strong><small>${p.label}${p.c==='USD'?' · USD':''}</small></div><div class="qty"><button class="btn sm" onclick="changeQty('${esc(x.listId||x.id)}',-1)">−</button><span>${x.quantity}x</span><button class="btn sm" onclick="changeQty('${esc(x.listId||x.id)}',1)">+</button><button class="btn danger sm" onclick="removeFav('${esc(x.listId||x.id)}')">×</button></div><div class="item-total">Totaal: ${totalItem===null?'Niet beschikbaar':money(totalItem,p.c)}</div></div></div>`}).join(''):'<div class="empty-list">Nog geen kaarten toegevoegd.</div>'}
 function openAlert(id){selectedAlertCard=currentCards.find(x=>x.id===id)||selectedCard;if(!selectedAlertCard)return;$('alertCardName').textContent=selectedAlertCard.name+' – huidige trendprijs '+euro(selectedAlertCard.prices?.trendPrice);$('alertModal').classList.add('open')}
 function closeAlert(){$('alertModal').classList.remove('open');selectedAlertCard=null;$('alertTarget').value=''}
 $('saveAlert').onclick=()=>{if(!selectedAlertCard||!$('alertTarget').value)return;const a=store.alerts.filter(x=>x.id!==selectedAlertCard.id);a.unshift({id:selectedAlertCard.id,name:selectedAlertCard.name,target:Number($('alertTarget').value),current:selectedAlertCard.prices?.trendPrice});store.alerts=a;closeAlert();showToast('Prijsalarm opgeslagen in deze browser.')}
