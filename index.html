@@ -673,7 +673,10 @@ async function zcPokemonFallback(parsed,rarity){
   const attempts=[];
   // PokemonTCG IDs differ slightly for special sets, so use current identifiers where known.
   const pokeIds={...SET_CODE_TO_ID,SHF:'swsh45',CPA:'swsh35',CRZ:'swsh12pt5',PAL:'sv2',OBF:'sv3',MEW:'sv3pt5',PAR:'sv4',PAF:'sv4pt5',TEF:'sv5',TWM:'sv6',SFA:'sv6pt5',SCR:'sv7',SSP:'sv8',PRE:'sv8pt5'};
-  const sid=pokeIds[parsed.setCode]||'';
+  // Een dynamisch opgeloste setcode (bijv. BRS -> swsh9) moet altijd als
+  // harde setvoorwaarde worden meegestuurd. Zonder dit viel de zoekopdracht
+  // terug op alleen de kaartnaam en verschenen kaarten uit andere sets.
+  const sid=parsed.pokemonSetId||parsed.setId||pokeIds[parsed.setCode]||'';
   if(sid&&parsed.number&&parsed.name)attempts.push(`set.id:${sid} number:${parsed.number} name:${parsed.name}*`);
   if(sid&&parsed.number)attempts.push(`set.id:${sid} number:${parsed.number}`);
   if(sid&&parsed.name)attempts.push(`set.id:${sid} name:${parsed.name}*`);
@@ -1282,21 +1285,21 @@ async function zcGlobalCardSearch(parsed,rarity){
   if(parsed.setId){
     for(const lang of langs){
       try{
-        const s=await zcFetchJson(`https://api.tcgdex.net/v2/${lang}/sets/${encodeURIComponent(parsed.setId)}`,7500);
+        const s=await zcFetchJson(`https://api.tcgdex.net/v2/${lang}/sets/${encodeURIComponent(parsed.setId)}`,15000);
         if(!s?.cards?.length)continue;
         let list=s.cards.filter(c=>{
           const numOK=!parsed.number||zcNormCardNumber(c.localId||'')===zcNormCardNumber(parsed.number);
           const nameOK=!parsed.name||zcNormText(c.name||'').includes(zcNormText(parsed.name));
           return numOK&&nameOK;
         }).slice(0,20);
-        for(const brief of list){
-          try{
-            const full=await zcFetchJson(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(brief.id)}`,6500);
-            const c=full?.id?full:brief;
-            if(rarity&&zcNormText(c.rarity||'')!==zcNormText(rarity))continue;
-            const r=zcTcgdexToResult({...c,set:c.set||s});
-            if(!seen.has(r.id)){seen.add(r.id);out.push(r)}
-          }catch(e){}
+        const detailed=await Promise.all(list.map(async brief=>{
+          try{return await zcFetchJson(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(brief.id)}`,9000)||brief}
+          catch(e){return brief}
+        }));
+        for(const c of detailed){
+          if(rarity&&c.rarity&&zcNormText(c.rarity)!==zcNormText(rarity))continue;
+          const r=zcTcgdexToResult({...c,set:c.set||s});
+          if(!seen.has(r.id)){seen.add(r.id);out.push(r)}
         }
         if(out.length)return out;
       }catch(e){}
@@ -1324,7 +1327,9 @@ async function zcGlobalCardSearch(parsed,rarity){
             const setText=zcNormText(c.set?.name||c.set?.id||'');
             const q=zcCatalogNorm(parsed.setQuery);
             const idText=String(c.set?.id||'').toUpperCase();
-            if(idText!==String(parsed.setQuery).toUpperCase() && !setText.includes(q))continue;
+            const resolvedId=String(parsed.setId||parsed.pokemonSetId||'').toUpperCase();
+            const resolvedName=zcNormText(parsed.resolvedSetName||'');
+            if(idText!==String(parsed.setQuery).toUpperCase() && idText!==resolvedId && (!resolvedName||!setText.includes(resolvedName)) && !setText.includes(q))continue;
           }
           if(rarity&&zcNormText(c.rarity||'')!==zcNormText(rarity))continue;
           const r=zcTcgdexToResult(c);
@@ -1348,6 +1353,7 @@ async function zcSearchDirect(rawName,rawSet,rawNumber,rarity){
       parsed.setId=r.tcgdexId||parsed.setId||'';
       parsed.pokemonSetId=r.pokemonId||'';
       parsed.preferredLang=r.lang||null;
+      parsed.resolvedSetName=r.name||'';
 
       // If catalog hit only came from Pokémon TCG API, find the same set in TCGdex by name.
       if(!parsed.setId && r.name){
@@ -1364,11 +1370,20 @@ async function zcSearchDirect(rawName,rawSet,rawNumber,rarity){
 
   // Global multilingual TCGdex search is the primary source for all languages,
   // promos, galleries, regional specials and new releases.
-  let cards=await zcGlobalCardSearch(parsed,rarity);
+  const strictSetFilter=cards=>(cards||[]).filter(card=>{
+    if(!parsed.setQuery)return true;
+    const wantedIds=[parsed.setId,parsed.pokemonSetId].filter(Boolean).map(x=>String(x).toLowerCase());
+    const cardIds=[card.setId,card.pokemonSetId].filter(Boolean).map(x=>String(x).toLowerCase());
+    if(wantedIds.some(id=>cardIds.includes(id)))return true;
+    const wantedName=zcNormSetName(parsed.resolvedSetName||'');
+    return !!wantedName && zcNormSetName(card.set||'')===wantedName;
+  });
+
+  let cards=strictSetFilter(await zcGlobalCardSearch(parsed,rarity));
   if(cards.length)return await zcAttachFallbacksToCards(cards,parsed);
 
   // English/international fallback catches cards that are newer in Pokémon TCG API.
-  cards=await zcPokemonFallback(parsed,rarity);
+  cards=strictSetFilter(await zcPokemonFallback(parsed,rarity));
   if(cards.length)return await zcAttachMarketToCards(cards,parsed);
 
   // Existing manually curated emergency fallback remains last.
