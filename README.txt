@@ -11,7 +11,7 @@ GitHub Pages installeren:
 5. Sla de instelling op.
 
 Zoeken kan op:
-- TCG-serie (nieuwste bovenaan)
+- complete TCG-setlijst (gewone sets nieuwste bovenaan, promo-sets onderaan)
 - set of setcode, inclusief promo- en specialsets
 - kaartnaam
 - kaartnummer

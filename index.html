@@ -178,7 +178,7 @@
 <section class="panel search-panel">
 <form id="searchForm">
 <div class="search-grid">
-  <div class="field"><label>TCG-serie</label><select id="series"><option value="">Alle series</option></select></div>
+  <div class="field"><label>TCG-serie / set</label><select id="series"><option value="">Alle series</option></select></div>
   <div class="field"><label>Kaartnaam</label><input id="q" autocomplete="off" placeholder="bijv. Charizard ex"></div>
   <div class="field set-combobox">
   <label>Set / setcode</label>
@@ -765,7 +765,7 @@ function zcLanguageLabel(){
   return zcSelectedLanguage();
 }
 
-const ZC_CATALOG_KEY='zamexcards_global_set_catalog_v9';
+const ZC_CATALOG_KEY='zamexcards_global_set_catalog_v10';
 const ZC_CATALOG_TTL=12*60*60*1000;
 const ZC_ALL_TCGDEX_LANGS=['en','ja','zh-tw','zh-cn','ko','de','fr','it','es','pt','nl'];
 let ZC_GLOBAL_CATALOG=[];
@@ -896,7 +896,9 @@ function zcIsPromoSet(entry){
   const name=zcCatalogNorm(entry?.name||'');
   const knownIds=['mep','svp','swshp','smp','xyp','bwp','dpp','np','basep','miscp'];
   const knownCodes=['MEP','SVP','SWSH','SM','XY','BW','DP','NP'];
-  return knownIds.includes(id)||knownCodes.includes(code)||/promo|promotional|black star/.test(name);
+  return knownIds.includes(id)||knownCodes.includes(code)||
+    /promo|promotional|black star|pop series|mcdonald|trainer kit|futsal|sample|demo pack/.test(name)||
+    /^(pop\d+|tk\d+|mcd\d+)$/.test(id);
 }
 function zcIsReleasedSet(entry){
   const t=zcDateValue(entry?.releaseDate);
@@ -983,8 +985,6 @@ function zcSetChoiceValue(entry){
 function zcSetDropdownItems(){
   const langs=zcPrimarySetLanguages();
   let entries=ZC_GLOBAL_CATALOG.filter(e=>langs.includes(e.lang)&&zcIsReleasedSet(e));
-  const selectedSeries=zcCatalogNorm(document.getElementById('series')?.value||'');
-  if(selectedSeries)entries=entries.filter(e=>zcCatalogNorm(e.series||'')===selectedSeries);
   const byName=new Map();
   for(const e of entries){
     const key=zcCatalogNorm(e.name||e.id);
@@ -1029,14 +1029,18 @@ function zcSetDropdownItems(){
 function zcRenderSeriesOptions(){
   const select=document.getElementById('series');if(!select)return;
   const previous=select.value;
-  const langs=zcPrimarySetLanguages();
-  const names=[...new Set(ZC_GLOBAL_CATALOG.filter(e=>langs.includes(e.lang)&&zcIsReleasedSet(e)).map(e=>String(e.series||'').trim()).filter(Boolean))];
-  names.sort((a,b)=>{
-    const newest=name=>Math.max(0,...ZC_GLOBAL_CATALOG.filter(e=>String(e.series||'')===name).map(e=>zcDateValue(e.releaseDate)));
-    return newest(b)-newest(a)||a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'});
-  });
-  select.innerHTML='<option value="">Alle series</option>'+names.map(name=>`<option value="${esc(name)}">${esc(name)}</option>`).join('');
-  if(names.includes(previous))select.value=previous;
+  const items=zcSetDropdownItems();
+  const regular=items.filter(e=>!zcIsPromoSet(e));
+  const promos=items.filter(zcIsPromoSet);
+  const option=e=>{
+    let code=zcSetChoiceValue(e);if(zcSelectedLanguage()==='English')code=String(code).toUpperCase();
+    const date=e.releaseDate?` – ${new Date(e.releaseDate).toLocaleDateString('nl-NL')}`:'';
+    return `<option value="${esc(code)}">${esc(e.name||e.id)} (${esc(code)})${esc(date)}</option>`;
+  };
+  select.innerHTML='<option value="">Alle series</option>'+
+    (regular.length?`<optgroup label="Sets – nieuwste bovenaan">${regular.map(option).join('')}</optgroup>`:'')+
+    (promos.length?`<optgroup label="Promo sets">${promos.map(option).join('')}</optgroup>`:'');
+  if([...select.options].some(o=>o.value===previous))select.value=previous;
 }
 function zcRenderSetDropdown(){
   const box=$('setDropdown'),input=$('set');if(!box||!input)return;
@@ -1447,7 +1451,7 @@ zcSetBox.addEventListener('mousedown',e=>{
 });
 document.addEventListener('mousedown',e=>{if(!e.target.closest('.set-combobox'))zcCloseSetDropdown()});
 $('series').addEventListener('change',()=>{
-  zcSetInput.value='';zcSetInput.dataset.setName='';
+  zcSetInput.value=$('series').value;zcSetInput.dataset.setName=$('series').selectedOptions[0]?.textContent||'';
   if(document.activeElement===zcSetInput)zcRenderSetDropdown();
 });
 $('language').addEventListener('change',async()=>{
