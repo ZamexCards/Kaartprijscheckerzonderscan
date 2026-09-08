@@ -278,7 +278,7 @@ const ZC_UI_TEXT=[
   ['De kaartdatabase kon niet worden bereikt. Probeer opnieuw.','The card database could not be reached. Please try again.'],
   ['Grotere afbeelding','Larger image'],['Voeg toe aan lijst','Add to list'],['Set','Set'],['Nummer','Number'],['Graded','Graded'],
   ['Actuele marktwaarde','Current market value'],['Gemiddelde prijs (30 dagen)','Average price (30 days)'],['actuele marktwaarde','current market value'],['gemiddeld 30 dagen','30-day average'],
-  ['Bron: TCGdex actuele marktgegevens · mediaan van prijstrend, 1 dag en 7 dagen','Source: TCGdex current market data · median of price trend, 1 day and 7 days'],
+  ['Bron: TCGdex actuele marktgegevens','Source: TCGdex current market data'],
   ['Sets – nieuwste bovenaan','Sets – newest first'],['Promo sets','Promo sets'],['Geen uitgebrachte sets gevonden voor deze taal.','No released sets found for this language.'],['Sets laden…','Loading sets…'],
   ['Near Mint','Near Mint'],['Engels','English'],['Japans','Japanese'],['Chinees','Chinese'],['Koreaans','Korean']
 ];
@@ -458,13 +458,18 @@ function zcCurrentMarketFromPricing(pricing,isFoil=false){
     const base=Number(p[baseKey]);
     return Number.isFinite(base)&&base>0?base:null;
   };
-  // De mediaan van trend, 1 dag en 7 dagen volgt de actuele markt beter dan
-  // avg30 en negeert tegelijk één tijdelijke uitschieter.
-  return zcMedian([
+  const current=zcMedian([
     pick('trend-holo','trend'),
     pick('avg1-holo','avg1'),
     pick('avg7-holo','avg7')
   ]);
+  const lowRaw=isFoil?(p['low-holo']??p.low):p.low;
+  const low=Number(lowRaw);
+  if(!Number.isFinite(low)||low<=0)return current;
+  if(current==null)return low;
+  // Gebruik de laagste marktprijs wanneer die geloofwaardig is. Een extreem
+  // lage fout-, damaged- of lokaanbieding mag de richtprijs niet bepalen.
+  return low>=current*.45?Math.min(low,current):current;
 }
 
 function zcNormText(v=''){
@@ -604,7 +609,7 @@ function zcTcgplayerMarket(pricing,selectedVariant='Standard'){
 }
 function zcBestVisiblePrice(card,selectedVariant='Standard'){
   const current=zcCurrentMarketForSelection(card,selectedVariant);
-  if(current!=null)return {value:current,currency:'EUR',label:'Actuele marktwaarde',source:'TCGdex actuele marktgegevens · mediaan van prijstrend, 1 dag en 7 dagen'};
+  if(current!=null)return {value:current,currency:'EUR',label:'Actuele marktwaarde',source:'TCGdex actuele marktgegevens'};
   const csv=zcTcgcsvPrice(card,selectedVariant);
   if(csv!=null)return {value:csv,currency:'EUR',label:'Actuele marktwaarde',source:'TCGCSV actuele marktgegevens'};
   if(zcIsNamedSpecialVariant(selectedVariant))return {value:null,currency:'EUR',label:'Actuele marktwaarde',source:'Nog geen prijsdata beschikbaar'};
@@ -1386,7 +1391,10 @@ async function zcAttachTcgcsv(card,parsed){
     const rate=await zcUsdEurRate(),variants={};
     for(const price of data.prices){
       if(!ids.has(price.productId))continue;
-      const usd=Number(price.marketPrice ?? price.midPrice ?? price.lowPrice);
+      const market=Number(price.marketPrice),mid=Number(price.midPrice),low=Number(price.lowPrice);
+      const reference=Number.isFinite(market)&&market>0?market:(Number.isFinite(mid)&&mid>0?mid:null);
+      const reliableLow=Number.isFinite(low)&&low>0&&(reference==null||low>=reference*.45)?low:null;
+      const usd=reliableLow!=null&&reference!=null?Math.min(reliableLow,reference):(reference??reliableLow);
       if(!Number.isFinite(usd)||usd<=0)continue;
       const label=zcTcgcsvVariantLabel(byId.get(price.productId),price);
       const previous=variants[label];
