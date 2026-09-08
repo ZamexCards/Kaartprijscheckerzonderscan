@@ -469,7 +469,7 @@ function zcCurrentMarketFromPricing(pricing,isFoil=false){
   if(current==null)return low;
   // Gebruik de laagste marktprijs wanneer die geloofwaardig is. Een extreem
   // lage fout-, damaged- of lokaanbieding mag de richtprijs niet bepalen.
-  return low>=current*.45?Math.min(low,current):current;
+  return low>=current*.45?(Math.min(low,current)+current)/2:current;
 }
 
 function zcNormText(v=''){
@@ -1394,7 +1394,7 @@ async function zcAttachTcgcsv(card,parsed){
       const market=Number(price.marketPrice),mid=Number(price.midPrice),low=Number(price.lowPrice);
       const reference=Number.isFinite(market)&&market>0?market:(Number.isFinite(mid)&&mid>0?mid:null);
       const reliableLow=Number.isFinite(low)&&low>0&&(reference==null||low>=reference*.45)?low:null;
-      const usd=reliableLow!=null&&reference!=null?Math.min(reliableLow,reference):(reference??reliableLow);
+      const usd=reliableLow!=null&&reference!=null?(Math.min(reliableLow,reference)+reference)/2:(reference??reliableLow);
       if(!Number.isFinite(usd)||usd<=0)continue;
       const label=zcTcgcsvVariantLabel(byId.get(price.productId),price);
       const previous=variants[label];
