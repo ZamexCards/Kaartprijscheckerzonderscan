@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#031a35">
-<!-- ZamexCards kaartzoeker build 17 -->
+<!-- ZamexCards kaartzoeker build 18 -->
 <title>ZamexCards Price Checker</title>
 <style>
 :root{--navy:#031a35;--navy2:#062447;--panel:#071f3f;--panel2:#0a294e;--line:#1b4f76;--green:#44d35b;--teal:#14b99b;--blue:#2d8cff;--text:#f7fbff;--muted:#a9bfd2;--danger:#ff4757;--shadow:0 18px 44px rgba(0,0,0,.25)}
@@ -911,7 +911,7 @@ function zcLanguageLabel(){
   return zcSelectedLanguage();
 }
 
-const ZC_CATALOG_KEY='zamexcards_global_set_catalog_v10';
+const ZC_CATALOG_KEY='zamexcards_global_set_catalog_v11';
 const ZC_CATALOG_TTL=12*60*60*1000;
 const ZC_ALL_TCGDEX_LANGS=['en','ja','zh-tw','zh-cn','ko','de','fr','it','es','pt','nl'];
 let ZC_GLOBAL_CATALOG=[];
@@ -1572,7 +1572,10 @@ async function zcSearchDirect(rawName,rawSet,rawNumber,rarity){
   if(parsed.setQuery){
     const r=await zcResolveSetFromCatalog(parsed.setQuery);
     if(r){
-      parsed.setId=r.tcgdexId||parsed.setId||'';
+      // English set IDs are shared by both public catalogs (for example
+      // BRS -> swsh9). Keep that ID for the primary TCGdex set lookup even
+      // when the first catalog hit came from the Pokémon TCG dataset.
+      parsed.setId=r.tcgdexId||(r.lang==='en'?r.pokemonId:'')||parsed.setId||'';
       parsed.pokemonSetId=r.pokemonId||'';
       parsed.preferredLang=r.lang||null;
       parsed.resolvedSetName=r.name||'';
