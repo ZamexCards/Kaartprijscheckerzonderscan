@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#031a35">
-<!-- ZamexCards kaartzoeker build 18 -->
+<!-- ZamexCards kaartzoeker build 19 -->
 <title>ZamexCards Price Checker</title>
 <style>
 :root{--navy:#031a35;--navy2:#062447;--panel:#071f3f;--panel2:#0a294e;--line:#1b4f76;--green:#44d35b;--teal:#14b99b;--blue:#2d8cff;--text:#f7fbff;--muted:#a9bfd2;--danger:#ff4757;--shadow:0 18px 44px rgba(0,0,0,.25)}
@@ -346,6 +346,20 @@ function renderDetail(){const c=selectedCard,el=$('detailPanel');if(!c){el.inner
 const SET_CODE_TO_ID={
   SVP:'svp',SWSH:'swshp',SWSHP:'swshp',SMP:'smp',SM:'smp',
   XYP:'xyp',XY:'xyp',BWP:'bwp',BW:'bwp',DPP:'dpp',DP:'dpp',NP:'np'
+};
+// Direct, dependency-free crosswalk for frequently used English sets. The live
+// catalog still adds older and newly released sets automatically.
+const ZC_SET_CROSSWALK={
+  BRS:[['swsh9','swsh9','Brilliant Stars'],['swsh9tg','swsh9tg','Brilliant Stars Trainer Gallery','TG']],
+  CRZ:[['swsh12.5','swsh12pt5','Crown Zenith'],['swsh12.5gg','swsh12pt5gg','Crown Zenith Galarian Gallery','GG']],
+  MEW:[['sv03.5','sv3pt5','151']],PRE:[['sv08.5','sv8pt5','Prismatic Evolutions']],
+  PFL:[['me02','me2','Phantasmal Flames']],MEG:[['me01','me1','Mega Evolution']],POR:[['me03','me3','Perfect Order']],
+  SVI:[['sv01','sv1','Scarlet & Violet']],PAL:[['sv02','sv2','Paldea Evolved']],OBF:[['sv03','sv3','Obsidian Flames']],
+  PAR:[['sv04','sv4','Paradox Rift']],PAF:[['sv04.5','sv4pt5','Paldean Fates']],TEF:[['sv05','sv5','Temporal Forces']],
+  TWM:[['sv06','sv6','Twilight Masquerade']],SFA:[['sv06.5','sv6pt5','Shrouded Fable']],SCR:[['sv07','sv7','Stellar Crown']],SSP:[['sv08','sv8','Surging Sparks']],
+  ASR:[['swsh10','swsh10','Astral Radiance']],LOR:[['swsh11','swsh11','Lost Origin']],SIT:[['swsh12','swsh12','Silver Tempest']],
+  FST:[['swsh8','swsh8','Fusion Strike']],EVS:[['swsh7','swsh7','Evolving Skies']],CRE:[['swsh6','swsh6','Chilling Reign']],BST:[['swsh5','swsh5','Battle Styles']],
+  SWSH:[['swshp','swshp','SWSH Black Star Promos']],SVP:[['svp','svp','Scarlet & Violet Black Star Promos']],MEP:[['mep','mep','Mega Evolution Black Star Promos']]
 };
 function zcClean(v=''){return String(v).trim().replace(/[^a-zA-Z0-9\s'.:/-]/g,'')}
 function zcNormNumber(v=''){return zcClean(v).toUpperCase().replace(/^0+(?=\d)/,'')}
@@ -911,7 +925,7 @@ function zcLanguageLabel(){
   return zcSelectedLanguage();
 }
 
-const ZC_CATALOG_KEY='zamexcards_global_set_catalog_v11';
+const ZC_CATALOG_KEY='zamexcards_global_set_catalog_v12';
 const ZC_CATALOG_TTL=12*60*60*1000;
 const ZC_ALL_TCGDEX_LANGS=['en','ja','zh-tw','zh-cn','ko','de','fr','it','es','pt','nl'];
 let ZC_GLOBAL_CATALOG=[];
@@ -928,6 +942,18 @@ function zcCatalogAliases(entry){
     entry.ptcgoCode,
     ...(entry.aliases||[])
   ].filter(Boolean).map(v=>String(v).trim()))];
+}
+function zcTcgdexIdFromPokemonId(value=''){
+  const id=String(value||'').trim();
+  let m=id.match(/^me(\d+)(.*)$/i);
+  if(m)return `me${m[1].padStart(2,'0')}${m[2]||''}`;
+  m=id.match(/^sv(\d+)pt5(.*)$/i);
+  if(m)return `sv${m[1].padStart(2,'0')}.5${m[2]||''}`;
+  m=id.match(/^sv(\d+)(.*)$/i);
+  if(m)return `sv${m[1].padStart(2,'0')}${m[2]||''}`;
+  m=id.match(/^swsh(\d+)pt5(.*)$/i);
+  if(m)return `swsh${m[1]}.5${m[2]||''}`;
+  return id;
 }
 function zcMergeCatalogEntry(map,entry){
   const key=`${entry.lang||'x'}|${entry.id||entry.name}`;
@@ -1234,11 +1260,18 @@ async function zcOpenSetDropdown(){
   try{await zcLoadGlobalCatalog(false);zcRenderSeriesOptions()}catch(e){}
   zcRenderSetDropdown();
 }
-async function zcResolveSetFromCatalog(query){
+async function zcResolveSetFromCatalog(query,cardNumber=''){
   const q=zcClean(query);
   if(!q)return null;
   const qn=zcCatalogNorm(q);
   const qu=q.toUpperCase();
+
+  const direct=ZC_SET_CROSSWALK[qu];
+  if(direct?.length){
+    const prefix=String(cardNumber||'').toUpperCase().match(/^(TG|GG)/)?.[1]||'';
+    const row=direct.find(x=>x[3]===prefix)||direct.find(x=>!x[3])||direct[0];
+    return {code:qu,tcgdexId:row[0],pokemonId:row[1],name:row[2],lang:'en',entry:null};
+  }
 
   await zcLoadGlobalCatalog(false);
 
@@ -1249,15 +1282,31 @@ async function zcResolveSetFromCatalog(query){
   );
   if(matches.length){
     matches.sort((a,b)=>{
+      const gallery=String(cardNumber||'').toUpperCase().match(/^(TG|GG)/)?.[1]||'';
+      const galleryScore=e=>{
+        const text=zcCatalogNorm(`${e.id||''} ${e.name||''}`);
+        const isTG=/trainer gallery|tg$/.test(text);
+        const isGG=/galarian gallery|gg$/.test(text);
+        if(gallery==='TG')return isTG?0:2;
+        if(gallery==='GG')return isGG?0:2;
+        return (isTG||isGG)?1:0;
+      };
+      const ag=galleryScore(a),bg=galleryScore(b);
+      if(ag!==bg)return ag-bg;
       const aOfficial=String(a.ptcgoCode||'').toUpperCase()===qu?0:1;
       const bOfficial=String(b.ptcgoCode||'').toUpperCase()===qu?0:1;
       if(aOfficial!==bOfficial)return aOfficial-bOfficial;
       return preferred.indexOf(a.lang)-preferred.indexOf(b.lang);
     });
     const hit=matches[0];
+    const pairedTcgdex=hit.source==='tcgdex'?hit:ZC_GLOBAL_CATALOG.find(e=>
+      e.source==='tcgdex' &&
+      zcCatalogNorm(e.name||'')===zcCatalogNorm(hit.name||'') &&
+      (e.lang===hit.lang || (hit.lang==='en'&&e.lang==='en'))
+    );
     return {
       code:qu,
-      tcgdexId:hit.source==='tcgdex'?hit.id:'',
+      tcgdexId:pairedTcgdex?.id||(hit.source==='pokemontcg'?zcTcgdexIdFromPokemonId(hit.id):''),
       pokemonId:hit.source==='pokemontcg'?hit.id:'',
       name:hit.name,
       lang:hit.lang,
@@ -1407,10 +1456,14 @@ async function zcAttachTcgcsv(card,parsed){
   return card;
 }
 async function zcAttachFallbacksToCards(cards,parsed){
-  return await Promise.all((cards||[]).map(async c=>{
-    await Promise.all([zcAttachPokemonFallback(c,parsed),zcAttachTcgcsv(c,parsed)]);
-    return c;
-  }));
+  // Show complete TCGdex results immediately. Extra images and variant prices
+  // are enriched in the background and must never block a normal search.
+  for(const c of cards||[]){
+    Promise.all([zcAttachPokemonFallback(c,parsed),zcAttachTcgcsv(c,parsed)]).then(()=>{
+      if(selectedCard?.id===c.id){zcSyncVariantOptions(c);renderDetail()}
+    }).catch(()=>{});
+  }
+  return cards||[];
 }
 
 async function zcAttachTcgdexMarket(card,parsed){
@@ -1465,16 +1518,19 @@ async function zcAttachMarketToCards(cards,parsed){
 async function zcGlobalCardSearch(parsed,rarity){
   const out=[];
   const seen=new Set();
-  const langs=[...new Set([
+  const primaryLangs=[...new Set([
     ...(parsed.preferredLang?[parsed.preferredLang]:[]),
-    ...zcLanguageChain(),
+    ...zcLanguageChain()
+  ])];
+  const langs=[...new Set([
+    ...primaryLangs,
     ...ZC_ALL_TCGDEX_LANGS
   ])];
 
   // If a set is resolved, direct exact lookup is the most reliable.
   if(parsed.setId&&parsed.number){
     const oldChain=zcLanguageChain;
-    for(const lang of langs){
+    for(const lang of primaryLangs){
       try{
         const raw=String(parsed.number).trim();
         const nums=[raw,raw.toUpperCase(),zcNormNumber(raw)];
@@ -1505,7 +1561,7 @@ async function zcGlobalCardSearch(parsed,rarity){
 
   // Set-level lookup is efficient and supports promos/specials.
   if(parsed.setId){
-    for(const lang of langs){
+    for(const lang of primaryLangs){
       try{
         const s=await zcFetchJson(`https://api.tcgdex.net/v2/${lang}/sets/${encodeURIComponent(parsed.setId)}`,15000);
         if(!s?.cards?.length)continue;
@@ -1570,19 +1626,16 @@ async function zcSearchDirect(rawName,rawSet,rawNumber,rarity){
 
   // Resolve every set dynamically. No hardcoded current-set list is required anymore.
   if(parsed.setQuery){
-    const r=await zcResolveSetFromCatalog(parsed.setQuery);
+    const r=await zcResolveSetFromCatalog(parsed.setQuery,parsed.number);
     if(r){
-      // English set IDs are shared by both public catalogs (for example
-      // BRS -> swsh9). Keep that ID for the primary TCGdex set lookup even
-      // when the first catalog hit came from the Pokémon TCG dataset.
-      parsed.setId=r.tcgdexId||(r.lang==='en'?r.pokemonId:'')||parsed.setId||'';
+      parsed.setId=r.tcgdexId||parsed.setId||'';
       parsed.pokemonSetId=r.pokemonId||'';
       parsed.preferredLang=r.lang||null;
       parsed.resolvedSetName=r.name||'';
 
       // If catalog hit only came from Pokémon TCG API, find the same set in TCGdex by name.
       if(!parsed.setId && r.name){
-        const r2=await zcResolveSetFromCatalog(r.name);
+        const r2=await zcResolveSetFromCatalog(r.name,parsed.number);
         if(r2?.tcgdexId){
           parsed.setId=r2.tcgdexId;
           parsed.preferredLang=r2.lang||parsed.preferredLang;
@@ -1605,11 +1658,22 @@ async function zcSearchDirect(rawName,rawSet,rawNumber,rarity){
   });
 
   let cards=strictSetFilter(await zcGlobalCardSearch(parsed,rarity));
-  if(cards.length)return await zcAttachFallbacksToCards(cards,parsed);
 
-  // English/international fallback catches cards that are newer in Pokémon TCG API.
-  cards=strictSetFilter(await zcPokemonFallback(parsed,rarity));
-  if(cards.length)return await zcAttachMarketToCards(cards,parsed);
+  // Combine the English fallback with the primary result instead of stopping
+  // after the first hit. This keeps every printing from the requested set,
+  // such as MEW 006, 183 and 199.
+  let fallbackCards=[];
+  if(!cards.length || (zcSelectedLanguage()==='English'&&!parsed.number&&cards.length===1)){
+    fallbackCards=strictSetFilter(await zcPokemonFallback(parsed,rarity));
+  }
+  const identity=c=>`${zcNormText(c.name||'')}|${zcNormCardNumber(c.number||'')}`;
+  const existing=new Set(cards.map(identity));
+  const missing=fallbackCards.filter(c=>!existing.has(identity(c)));
+  if(cards.length||missing.length){
+    const primary=cards.length?await zcAttachFallbacksToCards(cards,parsed):[];
+    const secondary=missing.length?await zcAttachMarketToCards(missing,parsed):[];
+    return [...primary,...secondary].sort((a,b)=>String(a.number||'').localeCompare(String(b.number||''),undefined,{numeric:true,sensitivity:'base'}));
+  }
 
   // Existing manually curated emergency fallback remains last.
   const localCards=zcLocalNewSetSearch(parsed,rarity);
