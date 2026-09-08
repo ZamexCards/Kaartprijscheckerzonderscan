@@ -211,6 +211,9 @@
 <option value="Pokémon Together stamp">Pokémon Together stamp</option>
 <option value="Snowflake stamp">Snowflake stamp</option>
 <option value="Play! Pokémon stamp">Play! Pokémon stamp</option>
+<option value="Pokémon Center stamp">Pokémon Center stamp</option>
+<option value="Prerelease stamp">Prerelease stamp</option>
+<option value="Staff stamp">Staff stamp</option>
 </select></div>
   <div class="field"><label>Taal</label><select id="language"><option value="English" selected>🇬🇧 Engels</option><option value="Japanese">🇯🇵 Japans</option><option value="Chinese">🇨🇳 Chinees</option><option value="Korean">🇰🇷 Koreaans</option></select></div>
   <div class="field"><label>Conditie</label><select id="condition"><option value="Near Mint" selected>Near Mint</option><option value="Excellent">Excellent</option><option value="Good">Good</option><option value="Light Played">Light Played</option><option value="Played">Played</option><option value="Poor">Poor</option></select></div>
@@ -332,13 +335,13 @@ function imageTag(c,cls=''){const imgs=candidates(c),first=imgs[0]||placeholder(
 function nextImage(img){let a=[];try{a=JSON.parse(decodeURIComponent(img.dataset.images||''))}catch{}let i=Number(img.dataset.index||0)+1;if(i<a.length){img.dataset.index=i;img.src=a[i]}else{img.onerror=null;img.src=img.dataset.placeholder}}
 function drawChart(canvas,values){if(!canvas)return;const ratio=devicePixelRatio||1,w=canvas.clientWidth*ratio,h=canvas.clientHeight*ratio;canvas.width=w;canvas.height=h;const x=canvas.getContext('2d');x.clearRect(0,0,w,h);if(!values?.length){x.fillStyle='#a9bfd2';x.font=`${14*ratio}px Arial`;x.textAlign='center';x.fillText('Prijsgrafiek nog niet beschikbaar',w/2,h/2);return}const min=Math.min(...values)*.95,max=Math.max(...values)*1.05,pad=18*ratio;x.strokeStyle='#123d60';x.lineWidth=1*ratio;for(let i=0;i<4;i++){const y=pad+i*(h-pad*2)/3;x.beginPath();x.moveTo(pad,y);x.lineTo(w-pad,y);x.stroke()}const pts=values.map((v,i)=>[pad+i*(w-pad*2)/(values.length-1),h-pad-(v-min)/(max-min||1)*(h-pad*2)]);const grad=x.createLinearGradient(0,0,0,h);grad.addColorStop(0,'rgba(68,211,91,.35)');grad.addColorStop(1,'rgba(68,211,91,0)');x.beginPath();pts.forEach((p,i)=>i?x.lineTo(...p):x.moveTo(...p));x.lineTo(w-pad,h-pad);x.lineTo(pad,h-pad);x.closePath();x.fillStyle=grad;x.fill();x.beginPath();pts.forEach((p,i)=>i?x.lineTo(...p):x.moveTo(...p));x.strokeStyle='#63df61';x.lineWidth=3*ratio;x.stroke()}
 function renderStrip(){const el=$('resultsStrip');if(currentCards.length<=1){el.innerHTML='';return}el.innerHTML=currentCards.map((c,i)=>`<button class="result-chip ${selectedCard?.id===c.id?'active':''}" onclick="selectCard(${i})">${imageTag(c)}<span><b>${esc(c.name)}</b><br>${esc(c.set)} #${esc(c.number)}${c.variantLabel?` · ${esc(c.variantLabel)}`:''}</span></button>`).join('')}
-function selectCard(i){selectedCard=currentCards[i];renderStrip();renderDetail()}
+function selectCard(i){selectedCard=currentCards[i];zcSyncVariantOptions(selectedCard);renderStrip();renderDetail()}
 function sellerRows(c){return '<div class="placeholder" style="padding:22px 10px">Verkoperprijzen zijn nog niet beschikbaar via de huidige prijsbron.</div>'}
 function zcSecondaryPriceRow(avg,best){
   if(avg==null||best.label==='Gemiddelde prijs (30 dagen)')return '';
   return `<div class="price-row secondary-price"><span>Gemiddelde prijs (30 dagen)</span><strong>${money(avg,'EUR')}</strong></div>`;
 }
-function renderDetail(){const c=selectedCard,el=$('detailPanel');if(!c){el.innerHTML='<div class="placeholder"><strong>Geen kaart geselecteerd.</strong></div>';return}const selectedVariant=$('variant').value,best=zcBestVisiblePrice(c,selectedVariant),avg=zcAvg30ForSelection(c,selectedVariant),sourceNote=best.value!=null?`<div style="font-size:12px;color:#8fb3cc;margin-top:10px">Bron: ${esc(best.source)}${best.currency==='USD'?' · prijs wordt in dollars getoond':''}</div>`:'<div style="font-size:12px;color:#ffcf7a;margin-top:10px">Voor deze kaart is bij de gekoppelde bronnen nog geen betrouwbare prijs beschikbaar.</div>';c.prices={...(c.prices||zcNoPrice()),average30Days:avg,currentMarket:(best.currency==='EUR'?best.value:null),fallbackMarket:best.value,fallbackCurrency:best.currency};el.innerHTML=`<div class="detail-grid"><div class="card-art">${imageTag(c)}<div class="zoom">⌕ Grotere afbeelding</div></div><div><div class="card-name"><div><h1>${esc(c.name)}</h1><div class="sub">${esc(c.set)} – ${esc(c.number)}</div></div><button class="btn sm" onclick="addSelectedCard()">♡</button></div><div class="info-box"><div class="info-row"><span>Rarity</span><strong>${esc(c.rarity||'Onbekend')}</strong></div><div class="info-row"><span>Set</span><strong>${esc(c.set)}</strong></div><div class="info-row"><span>Nummer</span><strong>${esc(c.number)}</strong></div><div class="info-row"><span>Uitvoering</span><strong>${esc(zcResolvedVariantLabel(c,selectedVariant))}</strong></div><div class="info-row"><span>Taal</span><strong>${esc($('language').selectedOptions[0].text.replace(/^..\s/,''))}</strong></div><div class="info-row"><span>Conditie</span><strong>${esc($('condition').value)}</strong></div><div class="info-row"><span>Graded</span><strong>${$('graded').value==='yes'?esc($('gradingCompany').value+' '+$('grade').value):'Niet graded'}</strong></div></div><div class="detail-actions"><button class="btn primary" onclick="addSelectedCard()">+ Voeg toe aan lijst</button></div></div><div class="prices-column"><div class="price-box"><div class="price-row primary-price"><span>${esc(best.label)}</span><strong>${best.value!=null?money(best.value,best.currency):'Niet beschikbaar'}</strong></div>${zcSecondaryPriceRow(avg,best)}${sourceNote}</div></div></div>`}
+function renderDetail(){const c=selectedCard,el=$('detailPanel');if(!c){el.innerHTML='<div class="placeholder"><strong>Geen kaart geselecteerd.</strong></div>';return}const selectedVariant=$('variant').value,best=zcBestVisiblePrice(c,selectedVariant),avg=zcAvg30ForSelection(c,selectedVariant),sourceNote=best.value!=null?`<div style="font-size:12px;color:#8fb3cc;margin-top:10px">Bron: ${esc(best.source)}${best.currency==='USD'?' · prijs wordt in dollars getoond':''}</div>`:'<div style="font-size:12px;color:#ffcf7a;margin-top:10px">Voor deze kaart is bij de gekoppelde bronnen nog geen betrouwbare prijs beschikbaar.</div>';c.prices={...(c.prices||zcNoPrice()),average30Days:avg,currentMarket:(best.currency==='EUR'?best.value:null),fallbackMarket:best.value,fallbackCurrency:best.currency};el.innerHTML=`<div class="detail-grid"><div class="card-art">${imageTag(c)}<div class="zoom">⌕ Grotere afbeelding</div></div><div><div class="card-name"><div><h1>${esc(c.name)}</h1><div class="sub">${esc(c.set)} – ${esc(c.number)}</div></div><button class="btn sm" onclick="addSelectedCard()">♡</button></div><div class="info-box"><div class="info-row"><span>Rarity</span><strong>${esc(c.rarity||'Onbekend')}</strong></div><div class="info-row"><span>Set</span><strong>${esc(c.set)}</strong></div><div class="info-row"><span>Nummer</span><strong>${esc(c.number)}</strong></div><div class="info-row"><span>Uitvoering</span><strong>${esc(zcResolvedVariantLabel(c,selectedVariant))}</strong></div><div class="info-row"><span>Taal</span><strong>${esc($('language').selectedOptions[0].text.replace(/^..\s/,''))}</strong></div><div class="info-row"><span>Conditie</span><strong>${esc($('condition').value)}</strong></div><div class="info-row"><span>Graded</span><strong>${$('graded').value==='yes'?esc($('gradingCompany').value+' '+$('grade').value):'Niet graded'}</strong></div></div><div class="detail-actions"><button class="btn primary" onclick="addSelectedCard()">+ Voeg toe aan lijst</button></div></div><div class="prices-column"><div class="price-box"><div class="price-row primary-price"><span>${esc(best.label)}</span><strong>${best.value!=null?money(best.value,best.currency):'Niet beschikbaar'}</strong></div>${sourceNote}</div></div></div>`}
 const SET_CODE_TO_ID={
   SVP:'svp',SWSH:'swshp',SWSHP:'swshp',SMP:'smp',SM:'smp',
   XYP:'xyp',XY:'xyp',BWP:'bwp',BW:'bwp',DPP:'dpp',DP:'dpp',NP:'np'
@@ -536,24 +539,50 @@ function zcAvg30ForSelection(card,selectedVariant){
   const foilWanted=!['Basic / Normaal','Standard'].includes(wanted);
   return zcAvg30FromPricing(card?.tcgdexPricing,foilWanted);
 }
+function zcIsNamedSpecialVariant(value=''){
+  const v=zcNormText(value);
+  return ['poke ball','great ball','master ball','pokemon together stamp','snowflake stamp','play pokemon stamp','pokemon center stamp','prerelease stamp','staff stamp'].includes(v);
+}
+function zcSyncVariantOptions(card){
+  const select=document.getElementById('variant');if(!select||!card)return;
+  const supported=new Set([
+    ...(card.variantsDetailed||[]).map(zcFinishLabel),
+    ...Object.keys(card.tcgcsvVariants||{})
+  ]);
+  for(const option of select.options){
+    option.disabled=zcIsNamedSpecialVariant(option.value)&&!supported.has(option.value);
+  }
+  if(zcIsNamedSpecialVariant(select.value)&&!supported.has(select.value)){
+    select.value='Automatisch';
+    showToast('Deze speciale uitvoering bestaat niet voor de gevonden kaart. Automatisch is geselecteerd.');
+  }
+}
 function zcCurrentMarketForSelection(card,selectedVariant){
   const variants=card?.variantsDetailed||[];
   const wanted=selectedVariant||'Automatisch';
   if(wanted==='Automatisch'){
     for(const variant of variants){
       const price=zcCurrentMarketFromPricing(variant.pricing,variant.type!=='normal'||!!variant.foil);
-      if(price!=null)return price*.95;
+      if(price!=null)return price*.97;
     }
     const price=zcCurrentMarketFromPricing(card?.tcgdexPricing,false) ?? zcCurrentMarketFromPricing(card?.tcgdexPricing,true);
-    return price==null?null:price*.95;
+    return price==null?null:price*.97;
   }
   const exact=variants.find(v=>zcFinishLabel(v)===wanted);
   if(exact){
     const price=zcCurrentMarketFromPricing(exact.pricing,exact.type!=='normal'||!!exact.foil);
-    if(price!=null)return price*.95;
+    if(price!=null)return price*.97;
   }
+  if(zcIsNamedSpecialVariant(wanted))return null;
   const price=zcCurrentMarketFromPricing(card?.tcgdexPricing,!['Basic / Normaal','Standard'].includes(wanted));
-  return price==null?null:price*.95;
+  return price==null?null:price*.97;
+}
+
+function zcTcgcsvPrice(card,selectedVariant){
+  const wanted=selectedVariant==='Automatisch'?(card.tcgcsvDefaultVariant||'Basic / Normaal'):selectedVariant;
+  const hit=card?.tcgcsvVariants?.[wanted];
+  const n=Number(hit?.eur);
+  return Number.isFinite(n)&&n>0?n*.97:null;
 }
 
 function zcTcgplayerVariantBlock(pricing,selectedVariant='Standard'){
@@ -576,6 +605,9 @@ function zcTcgplayerMarket(pricing,selectedVariant='Standard'){
 function zcBestVisiblePrice(card,selectedVariant='Standard'){
   const current=zcCurrentMarketForSelection(card,selectedVariant);
   if(current!=null)return {value:current,currency:'EUR',label:'Actuele marktwaarde',source:'TCGdex actuele marktgegevens · mediaan van prijstrend, 1 dag en 7 dagen'};
+  const csv=zcTcgcsvPrice(card,selectedVariant);
+  if(csv!=null)return {value:csv,currency:'EUR',label:'Actuele marktwaarde',source:'TCGCSV actuele marktgegevens'};
+  if(zcIsNamedSpecialVariant(selectedVariant))return {value:null,currency:'EUR',label:'Actuele marktwaarde',source:'Nog geen prijsdata beschikbaar'};
   const avg=zcAvg30ForSelection(card,selectedVariant);
   if(avg!=null)return {value:avg,currency:'EUR',label:'Gemiddelde prijs (30 dagen)',source:'TCGdex Europese marktfeed'};
   const market=zcTcgplayerMarket(card?.tcgplayerPricing,selectedVariant);
@@ -1289,9 +1321,85 @@ async function zcAttachPokemonFallback(card,parsed){
   }catch(e){}
   return card;
 }
+const ZC_TCGCSV_CACHE=new Map();
+let ZC_USD_EUR_RATE=null;
+async function zcUsdEurRate(){
+  if(Number.isFinite(ZC_USD_EUR_RATE))return ZC_USD_EUR_RATE;
+  try{
+    const d=await zcFetchJson('https://api.frankfurter.app/latest?from=USD&to=EUR',6000);
+    const n=Number(d?.rates?.EUR);
+    if(Number.isFinite(n)&&n>0)ZC_USD_EUR_RATE=n;
+  }catch(e){}
+  return Number.isFinite(ZC_USD_EUR_RATE)?ZC_USD_EUR_RATE:.86;
+}
+function zcTcgcsvNumber(product){
+  const row=(product?.extendedData||[]).find(x=>zcNormText(x?.name)==='number');
+  return zcNormCardNumber(String(row?.value||'').split('/')[0]);
+}
+function zcTcgcsvVariantLabel(product,price){
+  const name=zcNormText(product?.name||'');
+  if(name.includes('master ball'))return 'Master Ball';
+  if(name.includes('great ball'))return 'Great Ball';
+  if(name.includes('poke ball'))return 'Poké Ball';
+  if(name.includes('pokemon together'))return 'Pokémon Together stamp';
+  if(name.includes('snowflake'))return 'Snowflake stamp';
+  if(name.includes('play pokemon'))return 'Play! Pokémon stamp';
+  if(name.includes('pokemon center'))return 'Pokémon Center stamp';
+  if(name.includes('prerelease')||name.includes('pre release'))return 'Prerelease stamp';
+  if(name.includes('staff'))return 'Staff stamp';
+  const subtype=zcNormText(price?.subTypeName||'');
+  if(subtype.includes('reverse'))return 'Reverse Holo';
+  if(subtype.includes('holo'))return 'Holo';
+  return 'Basic / Normaal';
+}
+async function zcTcgcsvGroup(category,setCode,setName){
+  const key=`groups:${category}`;
+  let groups=ZC_TCGCSV_CACHE.get(key);
+  if(!groups){groups=zcFetchJson(`https://tcgcsv.com/tcgplayer/${category}/groups`,12000).then(d=>d?.results||[]).catch(()=>[]);ZC_TCGCSV_CACHE.set(key,groups)}
+  groups=await groups;
+  const code=String(setCode||'').trim().toLowerCase(),name=zcNormSetName(setName||'');
+  return groups.find(g=>String(g.abbreviation||'').trim().toLowerCase()===code)
+    ||groups.find(g=>name&&zcNormSetName(g.name||'').includes(name))
+    ||null;
+}
+async function zcAttachTcgcsv(card,parsed){
+  try{
+    const language=document.getElementById('language')?.value||'English';
+    const category=language==='Japanese'?85:3;
+    const group=await zcTcgcsvGroup(category,parsed?.setCode||card?.setCode||card?.setId,parsed?.resolvedSetName||card?.set);
+    if(!group)return card;
+    const key=`set:${category}:${group.groupId}`;
+    let data=ZC_TCGCSV_CACHE.get(key);
+    if(!data){
+      data=Promise.all([
+        zcFetchJson(`https://tcgcsv.com/tcgplayer/${category}/${group.groupId}/products`,14000),
+        zcFetchJson(`https://tcgcsv.com/tcgplayer/${category}/${group.groupId}/prices`,14000)
+      ]).then(([p,r])=>({products:p?.results||[],prices:r?.results||[]})).catch(()=>({products:[],prices:[]}));
+      ZC_TCGCSV_CACHE.set(key,data);
+    }
+    data=await data;
+    const number=zcNormCardNumber(card?.number||parsed?.number||'');
+    const products=data.products.filter(p=>zcTcgcsvNumber(p)===number);
+    if(!products.length)return card;
+    const ids=new Set(products.map(p=>p.productId));
+    const byId=new Map(products.map(p=>[p.productId,p]));
+    const rate=await zcUsdEurRate(),variants={};
+    for(const price of data.prices){
+      if(!ids.has(price.productId))continue;
+      const usd=Number(price.marketPrice ?? price.midPrice ?? price.lowPrice);
+      if(!Number.isFinite(usd)||usd<=0)continue;
+      const label=zcTcgcsvVariantLabel(byId.get(price.productId),price);
+      const previous=variants[label];
+      if(!previous||usd>previous.usd)variants[label]={usd,eur:usd*rate,productId:price.productId};
+    }
+    card.tcgcsvVariants=variants;
+    card.tcgcsvDefaultVariant=variants['Basic / Normaal']?'Basic / Normaal':Object.keys(variants)[0]||'';
+  }catch(e){}
+  return card;
+}
 async function zcAttachFallbacksToCards(cards,parsed){
   return await Promise.all((cards||[]).map(async c=>{
-    await zcAttachPokemonFallback(c,parsed);
+    await Promise.all([zcAttachPokemonFallback(c,parsed),zcAttachTcgcsv(c,parsed)]);
     return c;
   }));
 }
@@ -1521,6 +1629,7 @@ async function searchCards(e){
   try{
     currentCards=zcValidateCards(await zcSearchDirect($('q').value,$('set').value,$('number').value,$('rarity').value));
     selectedCard=currentCards[0]||null;
+    if(selectedCard)zcSyncVariantOptions(selectedCard);
     renderStrip();renderDetail();
     if(!currentCards.length)showToast('Geen kaart gevonden. Controleer setcode, taal en kaartnummer. Voor zeer nieuwe sets wordt ook een aanvullende setindex gebruikt.')
   }catch(err){

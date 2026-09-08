@@ -20,5 +20,6 @@ Zoeken kan op:
 - conditie (Near Mint is standaard)
 - graded of niet graded, gradingbedrijf en grade
 
-De setcatalogus en kaartgegevens worden via de bestaande openbare databronnen
-geladen. Daarom is een internetverbinding nodig.
+De setcatalogus, kaartgegevens en prijzen worden via openbare gratis databronnen
+geladen. TCGdex blijft de standaard prijsbron; TCGCSV wordt automatisch als
+variantgerichte back-up gebruikt. Daarom is een internetverbinding nodig.
