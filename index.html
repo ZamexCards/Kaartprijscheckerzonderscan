@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#031a35">
-<!-- ZamexCards kaartzoeker build 23 -->
+<!-- ZamexCards kaartzoeker build 24 -->
 <title>ZamexCards Price Checker</title>
 <style>
 :root{--navy:#031a35;--navy2:#062447;--panel:#071f3f;--panel2:#0a294e;--line:#1b4f76;--green:#44d35b;--teal:#14b99b;--blue:#2d8cff;--text:#f7fbff;--muted:#a9bfd2;--danger:#ff4757;--shadow:0 18px 44px rgba(0,0,0,.25)}
@@ -166,7 +166,8 @@
 .price-box{width:100%;max-width:100%;overflow:hidden}
 .price-row.primary-price{display:grid;grid-template-columns:minmax(0,1fr);align-items:center;gap:6px}
 .price-row.primary-price span{min-width:0;line-height:1.25}
-.price-row.primary-price strong{display:block;white-space:nowrap;width:100%;max-width:100%;font-size:clamp(18px,2vw,22px);text-align:right;overflow:hidden}
+.price-row.primary-price strong{display:block;white-space:nowrap;width:auto;max-width:100%;font-size:clamp(18px,2vw,22px);text-align:left;justify-self:start;overflow:hidden}
+@media(max-width:1500px){.detail-grid{grid-template-columns:220px minmax(0,1fr)}.prices-column{grid-column:1/-1}}
 .item-eighty{margin-top:3px;color:#65df5d;font-size:10px;font-weight:800;white-space:nowrap}
 .bottom-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:20px 0 6px}
 .ui-language-switch{margin-left:auto;display:flex;align-items:center;gap:7px;border:1px solid #31587b;background:#082746;border-radius:10px;padding:6px 9px;font-weight:900}
