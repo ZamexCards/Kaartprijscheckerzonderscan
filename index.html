@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#031a35">
-<!-- ZamexCards kaartzoeker build 25 -->
+<!-- ZamexCards kaartzoeker build 26 -->
 <title>ZamexCards Price Checker</title>
 <style>
 :root{--navy:#031a35;--navy2:#062447;--panel:#071f3f;--panel2:#0a294e;--line:#1b4f76;--green:#44d35b;--teal:#14b99b;--blue:#2d8cff;--text:#f7fbff;--muted:#a9bfd2;--danger:#ff4757;--shadow:0 18px 44px rgba(0,0,0,.25)}
@@ -592,26 +592,26 @@ function zcCurrentMarketForSelection(card,selectedVariant){
   if(wanted==='Automatisch'){
     for(const variant of variants){
       const price=zcCurrentMarketFromPricing(variant.pricing,variant.type!=='normal'||!!variant.foil);
-      if(price!=null)return price*.97;
+      if(price!=null)return price;
     }
     const price=zcCurrentMarketFromPricing(card?.tcgdexPricing,false) ?? zcCurrentMarketFromPricing(card?.tcgdexPricing,true);
-    return price==null?null:price*.97;
+    return price==null?null:price;
   }
   const exact=variants.find(v=>zcFinishLabel(v)===wanted);
   if(exact){
     const price=zcCurrentMarketFromPricing(exact.pricing,exact.type!=='normal'||!!exact.foil);
-    if(price!=null)return price*.97;
+    if(price!=null)return price;
   }
   if(zcIsNamedSpecialVariant(wanted))return null;
   const price=zcCurrentMarketFromPricing(card?.tcgdexPricing,!['Basic / Normaal','Standard'].includes(wanted));
-  return price==null?null:price*.97;
+  return price==null?null:price;
 }
 
 function zcTcgcsvPrice(card,selectedVariant){
   const wanted=selectedVariant==='Automatisch'?(card.tcgcsvDefaultVariant||'Basic / Normaal'):selectedVariant;
   const hit=card?.tcgcsvVariants?.[wanted];
   const n=Number(hit?.eur);
-  return Number.isFinite(n)&&n>0?n*.97:null;
+  return Number.isFinite(n)&&n>0?n:null;
 }
 
 function zcTcgplayerVariantBlock(pricing,selectedVariant='Standard'){
