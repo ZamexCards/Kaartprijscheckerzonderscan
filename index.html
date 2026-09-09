@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#031a35">
-<!-- ZamexCards kaartzoeker build 21 -->
+<!-- ZamexCards kaartzoeker build 22 -->
 <title>ZamexCards Price Checker</title>
 <style>
 :root{--navy:#031a35;--navy2:#062447;--panel:#071f3f;--panel2:#0a294e;--line:#1b4f76;--green:#44d35b;--teal:#14b99b;--blue:#2d8cff;--text:#f7fbff;--muted:#a9bfd2;--danger:#ff4757;--shadow:0 18px 44px rgba(0,0,0,.25)}
@@ -162,6 +162,10 @@
 .price-row.secondary-price{padding:7px 0;opacity:.72}
 .price-row.secondary-price span{font-size:13px;color:#a9bfd2}
 .price-row.secondary-price strong{font-size:15px;color:#9fc9e8;font-weight:700}
+.price-row.primary-price{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px}
+.price-row.primary-price span{min-width:0;line-height:1.25}
+.price-row.primary-price strong{white-space:nowrap;max-width:100%;font-size:clamp(18px,2vw,22px);text-align:right}
+@media(max-width:420px){.price-row.primary-price{grid-template-columns:1fr}.price-row.primary-price strong{text-align:left}}
 .item-eighty{margin-top:3px;color:#65df5d;font-size:10px;font-weight:800;white-space:nowrap}
 .bottom-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:20px 0 6px}
 .ui-language-switch{margin-left:auto;display:flex;align-items:center;gap:7px;border:1px solid #31587b;background:#082746;border-radius:10px;padding:6px 9px;font-weight:900}
@@ -217,7 +221,7 @@
 <option value="Staff stamp">Staff stamp</option>
 </select></div>
   <div class="field"><label>Taal</label><select id="language"><option value="English" selected>🇬🇧 Engels</option><option value="Japanese">🇯🇵 Japans</option><option value="Chinese">🇨🇳 Chinees</option><option value="Korean">🇰🇷 Koreaans</option></select></div>
-  <div class="field"><label>Conditie</label><select id="condition"><option value="Near Mint" selected>Near Mint</option><option value="Excellent">Excellent</option><option value="Good">Good</option><option value="Light Played">Light Played</option><option value="Played">Played</option><option value="Poor">Poor</option></select></div>
+  <div class="field"><label>Conditie</label><select id="condition"><option value="Mint">Mint</option><option value="Near Mint" selected>Near Mint</option><option value="Excellent">Excellent</option><option value="Good">Good</option><option value="Light Played">Light Played</option><option value="Played">Played</option><option value="Poor">Poor</option></select></div>
   <div class="field"><label>Grading</label><select id="graded"><option value="no" selected>Niet graded</option><option value="yes">Graded</option></select></div>
   <div class="field"><label>Rarity</label><select id="rarity"><option value="">Alle rarities</option><option>Common</option><option>Uncommon</option><option>Rare</option><option>Rare Holo</option><option>Ultra Rare</option><option>Illustration Rare</option><option>Special Illustration Rare</option></select></div>
   <div class="grading-options" id="gradingOptions"><div class="field"><label>Gradingbedrijf</label><select id="gradingCompany">
@@ -621,17 +625,36 @@ function zcTcgplayerMarket(pricing,selectedVariant='Standard'){
   const n=Number(block?.market ?? block?.mid ?? block?.low);
   return Number.isFinite(n)&&n>0?n:null;
 }
+function zcConditionFactor(condition){
+  return ({
+    'Mint':1.05,
+    'Near Mint':1,
+    'Excellent':.90,
+    'Good':.80,
+    'Light Played':.70,
+    'Played':.55,
+    'Poor':.35
+  })[condition]??1;
+}
+function zcApplyCondition(value){
+  const n=Number(value);
+  if(!Number.isFinite(n)||n<=0)return value;
+  if(document.getElementById('graded')?.value==='yes')return n;
+  const condition=document.getElementById('condition')?.value||'Near Mint';
+  return n*zcConditionFactor(condition);
+}
 function zcBestVisiblePrice(card,selectedVariant='Standard'){
+  const found=(value,currency,label,source)=>({value:value==null?null:zcApplyCondition(value),currency,label,source});
   const current=zcCurrentMarketForSelection(card,selectedVariant);
-  if(current!=null)return {value:current,currency:'EUR',label:'Actuele marktwaarde',source:'TCGdex actuele marktgegevens'};
+  if(current!=null)return found(current,'EUR','Actuele marktwaarde','TCGdex actuele marktgegevens');
   const csv=zcTcgcsvPrice(card,selectedVariant);
-  if(csv!=null)return {value:csv,currency:'EUR',label:'Actuele marktwaarde',source:'TCGCSV actuele marktgegevens'};
-  if(zcIsNamedSpecialVariant(selectedVariant))return {value:null,currency:'EUR',label:'Actuele marktwaarde',source:'Nog geen prijsdata beschikbaar'};
+  if(csv!=null)return found(csv,'EUR','Actuele marktwaarde','TCGCSV actuele marktgegevens');
+  if(zcIsNamedSpecialVariant(selectedVariant))return found(null,'EUR','Actuele marktwaarde','Nog geen prijsdata beschikbaar');
   const avg=zcAvg30ForSelection(card,selectedVariant);
-  if(avg!=null)return {value:avg,currency:'EUR',label:'Gemiddelde prijs (30 dagen)',source:'TCGdex Europese marktfeed'};
+  if(avg!=null)return found(avg,'EUR','Gemiddelde prijs (30 dagen)','TCGdex Europese marktfeed');
   const market=zcTcgplayerMarket(card?.tcgplayerPricing,selectedVariant);
-  if(market!=null)return {value:market,currency:'USD',label:'Actuele marktprijs',source:'TCGplayer marktprijs (fallback)'};
-  return {value:null,currency:'EUR',label:'Gemiddelde prijs (30 dagen)',source:'Nog geen prijsdata beschikbaar'};
+  if(market!=null)return found(market,'USD','Actuele marktprijs','TCGplayer marktprijs (fallback)');
+  return found(null,'EUR','Gemiddelde prijs (30 dagen)','Nog geen prijsdata beschikbaar');
 }
 function zcMarketPricesFromTcgdex(card){
   const avg=zcAvg30ForSelection(card,'Standard');
@@ -1743,7 +1766,8 @@ function closeAlert(){$('alertModal').classList.remove('open');selectedAlertCard
 $('saveAlert').onclick=()=>{if(!selectedAlertCard||!$('alertTarget').value)return;const a=store.alerts.filter(x=>x.id!==selectedAlertCard.id);a.unshift({id:selectedAlertCard.id,name:selectedAlertCard.name,target:Number($('alertTarget').value),current:selectedAlertCard.prices?.trendPrice});store.alerts=a;closeAlert();showToast('Prijsalarm opgeslagen in deze browser.')}
 function showToast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(showToast.t);showToast.t=setTimeout(()=>e.classList.remove('show'),2800)}
 $('variant').addEventListener('change',()=>{if(selectedCard)renderDetail();});
-$('graded').addEventListener('change',()=>$('gradingOptions').classList.toggle('show',$('graded').value==='yes'));$('searchForm').addEventListener('submit',searchCards);$('clearSearch').onclick=()=>{['q','set','number'].forEach(id=>$(id).value='');$('series').value='';$('rarity').value='';$('variant').value='Automatisch';$('language').value='English';$('condition').value='Near Mint';$('graded').value='no';$('gradingOptions').classList.remove('show');$('q').focus()};$('clearAll').onclick=()=>{if(confirm('Weet je zeker dat je de hele kaartenlijst wilt leegmaken?')){store.favs=[];renderFavorites()}};
+$('condition').addEventListener('change',()=>{if(selectedCard)renderDetail();});
+$('graded').addEventListener('change',()=>{$('gradingOptions').classList.toggle('show',$('graded').value==='yes');if(selectedCard)renderDetail()});$('searchForm').addEventListener('submit',searchCards);$('clearSearch').onclick=()=>{['q','set','number'].forEach(id=>$(id).value='');$('series').value='';$('rarity').value='';$('variant').value='Automatisch';$('language').value='English';$('condition').value='Near Mint';$('graded').value='no';$('gradingOptions').classList.remove('show');$('q').focus()};$('clearAll').onclick=()=>{if(confirm('Weet je zeker dat je de hele kaartenlijst wilt leegmaken?')){store.favs=[];renderFavorites()}};
 
 
 const zcSetInput=$('set'),zcSetBox=$('setDropdown');
