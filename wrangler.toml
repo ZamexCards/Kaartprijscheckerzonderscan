@@ -1,0 +1,10 @@
+name = "zamexcards-kaartscanner"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://zamexcards.github.io"
+OPENAI_MODEL = "gpt-5.6-luna"
+
+# OPENAI_API_KEY en SCANNER_PIN horen NIET in dit bestand.
+# Voeg die toe als encrypted secrets in het Cloudflare-dashboard.

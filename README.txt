@@ -1,6 +1,12 @@
 ZamexCards Pokémon TCG Kaartzoeker
 ==================================
 
+NIEUW: beveiligde AI-kaartscanner
+---------------------------------
+Open eerst INSTALLATIE.html. De OpenAI API-key mag nooit in index.html of
+GitHub worden gezet. De meegeleverde Cloudflare Worker bewaart de sleutel als
+encrypted secret en controleert zowel de website-origin als een geheime PIN.
+
 Deze versie bevat alleen de kaartzoeker en geen scanner.
 
 GitHub Pages installeren:
