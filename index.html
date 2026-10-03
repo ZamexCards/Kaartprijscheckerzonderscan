@@ -253,7 +253,6 @@
 </select></div><div class="field"><label>Grade</label><select id="grade"><option>10</option><option>9.5</option><option>9</option><option>8.5</option><option>8</option><option>7.5</option><option>7</option><option>6</option><option>5</option><option>4</option><option>3</option><option>2</option><option>1</option></select></div></div>
 </div>
 <div class="search-actions">
-  <button class="btn blue" type="button" id="openSecureScanner">📷 Scan kaart</button>
   <button class="btn primary" type="submit">⌕ Zoek mijn kaart</button>
   <button class="btn ghost" type="button" id="clearSearch">Clear zoeken</button>
 </div>
@@ -277,25 +276,8 @@
 
 <div class="modal" id="alertModal"><div class="modal-box alert-form"><h2>Prijsalarm instellen</h2><div id="alertCardName"></div><input id="alertTarget" type="number" min="0" step="0.01" placeholder="Waarschuw onder prijs, bijv. 25.00"><div class="scanner-actions"><button class="btn primary" id="saveAlert">Opslaan</button><button class="btn" onclick="closeAlert()">Annuleren</button></div></div></div>
 
-<div class="modal" id="secureScannerModal"><div class="modal-box">
-  <h2>📷 Beveiligde kaartscanner</h2>
-  <p>Maak een scherpe foto van de voorkant. De scanner leest de kaart en zoekt daarna automatisch in de kaartdatabase.</p>
-  <div class="secure-scan-box">
-    <label for="scannerPin">Scanner-PIN</label>
-    <input id="scannerPin" type="password" inputmode="numeric" autocomplete="off" placeholder="Alleen jij kent deze PIN">
-    <label for="scannerPhoto">Foto van de kaart</label>
-    <input id="scannerPhoto" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
-    <div class="ai-scan-note"><strong>Veilig:</strong> de OpenAI API-key staat niet in deze pagina. De PIN blijft alleen tijdens deze browsersessie bewaard.</div>
-    <div id="secureScanResult" class="secure-scan-result"></div>
-  </div>
-  <div class="scanner-actions"><button class="btn primary" id="runSecureScanner">Herken kaart</button><button class="btn" id="closeSecureScanner">Annuleren</button></div>
-</div></div>
-
 <div class="toast" id="toast"></div>
 <script>
-// Vul na het publiceren van de beveiligde Worker alleen de URL hieronder in.
-// Plaats hier NOOIT de OpenAI API-key of de scanner-PIN.
-const ZC_SCANNER_ENDPOINT='https://zamexcards-kaartscanner.zameykat.workers.dev';
 const $=id=>document.getElementById(id); const euro=n=>(n===null||n===undefined||n===''||!Number.isFinite(Number(n)))?'Niet beschikbaar':new Intl.NumberFormat('nl-NL',{style:'currency',currency:'EUR'}).format(Number(n)); const money=(n,c='EUR')=>(n===null||n===undefined||n===''||!Number.isFinite(Number(n)))?'Niet beschikbaar':new Intl.NumberFormat('nl-NL',{style:'currency',currency:c}).format(Number(n));
 let currentCards=[],selectedCard=null,selectedAlertCard=null,stream=null,ocrBusy=false;
 const store={get favs(){try{return JSON.parse(localStorage.getItem('zc_favs')||'[]')}catch{return[]}},set favs(v){localStorage.setItem('zc_favs',JSON.stringify(v))},get alerts(){try{return JSON.parse(localStorage.getItem('zc_alerts')||'[]')}catch{return[]}},set alerts(v){localStorage.setItem('zc_alerts',JSON.stringify(v))}};
@@ -1808,48 +1790,6 @@ function closeAlert(){$('alertModal').classList.remove('open');selectedAlertCard
 $('saveAlert').onclick=()=>{if(!selectedAlertCard||!$('alertTarget').value)return;const a=store.alerts.filter(x=>x.id!==selectedAlertCard.id);a.unshift({id:selectedAlertCard.id,name:selectedAlertCard.name,target:Number($('alertTarget').value),current:selectedAlertCard.prices?.trendPrice});store.alerts=a;closeAlert();showToast('Prijsalarm opgeslagen in deze browser.')}
 function showToast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(showToast.t);showToast.t=setTimeout(()=>e.classList.remove('show'),2800)}
 
-function zcScannerOpen(){
-  $('scannerPin').value=sessionStorage.getItem('zc_scanner_pin')||'';
-  $('scannerPhoto').value='';$('secureScanResult').textContent='';
-  $('secureScannerModal').classList.add('open');
-}
-function zcScannerClose(){$('secureScannerModal').classList.remove('open')}
-async function zcImageDataUrl(file){
-  const raw=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)});
-  const img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=reject;i.src=raw});
-  const max=1600,scale=Math.min(1,max/Math.max(img.width,img.height));
-  const canvas=document.createElement('canvas');canvas.width=Math.round(img.width*scale);canvas.height=Math.round(img.height*scale);
-  canvas.getContext('2d',{alpha:false}).drawImage(img,0,0,canvas.width,canvas.height);
-  return canvas.toDataURL('image/jpeg',.84);
-}
-function zcVariantFromScan(value=''){
-  const n=zcNormText(value);
-  const map=[['master ball','Master Ball'],['great ball','Great Ball'],['poke ball','Poké Ball'],['reverse','Reverse Holo'],['cosmos','Cosmos Holo'],['galaxy','Galaxy Holo'],['cracked ice','Cracked Ice Holo'],['holo','Holo'],['normal','Basic / Normaal']];
-  return map.find(([k])=>n.includes(k))?.[1]||'Automatisch';
-}
-function zcLanguageFromScan(value=''){
-  const n=zcNormText(value);if(n.includes('japan'))return'Japanese';if(n.includes('korea'))return'Korean';if(n.includes('chinese')||n.includes('chine'))return'Chinese';return'English';
-}
-async function zcRunSecureScanner(){
-  const pin=$('scannerPin').value.trim(),file=$('scannerPhoto').files?.[0],status=$('secureScanResult'),button=$('runSecureScanner');
-  if(!/^https:\/\//i.test(ZC_SCANNER_ENDPOINT)){status.textContent='De beveiligde serverfunctie is nog niet gekoppeld. Volg eerst INSTALLATIE.html.';return}
-  if(!pin){status.textContent='Vul jouw geheime scanner-PIN in.';return}
-  if(!file){status.textContent='Maak of kies eerst een foto van de kaart.';return}
-  button.disabled=true;status.textContent='Foto verkleinen en kaart herkennen…';
-  try{
-    sessionStorage.setItem('zc_scanner_pin',pin);
-    const image=await zcImageDataUrl(file);
-    const response=await fetch(ZC_SCANNER_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','X-Scanner-Pin':pin},body:JSON.stringify({image})});
-    const data=await response.json().catch(()=>({}));
-    if(!response.ok)throw new Error(data.error||`Scannerfout (${response.status})`);
-    $('q').value=data.cardName||'';$('set').value=data.setCode||data.setName||'';$('number').value=data.cardNumber||'';
-    $('variant').value=zcVariantFromScan(data.variant);$('language').value=zcLanguageFromScan(data.language);
-    status.textContent=`Herkend: ${data.cardName||'onbekend'} · ${data.setCode||data.setName||'set onbekend'} · ${data.cardNumber||'nummer onbekend'}${data.confidence!=null?' · zekerheid '+Math.round(Number(data.confidence)*100)+'%':''}`;
-    setTimeout(()=>{zcScannerClose();$('searchForm').requestSubmit()},650);
-  }catch(error){status.textContent=error.message==='Failed to fetch'?'Geen verbinding met de beveiligde scanner. Controleer de Worker-URL en toegestane website.':error.message}
-  finally{button.disabled=false}
-}
-$('openSecureScanner').onclick=zcScannerOpen;$('closeSecureScanner').onclick=zcScannerClose;$('runSecureScanner').onclick=zcRunSecureScanner;
 $('variant').addEventListener('change',()=>{if(selectedCard)renderDetail();});
 $('condition').addEventListener('change',()=>{if(selectedCard)renderDetail();});
 $('graded').addEventListener('change',()=>{$('gradingOptions').classList.toggle('show',$('graded').value==='yes');if(selectedCard)renderDetail()});$('searchForm').addEventListener('submit',searchCards);$('clearSearch').onclick=()=>{['q','set','number'].forEach(id=>$(id).value='');$('series').value='';$('rarity').value='';$('variant').value='Automatisch';$('language').value='English';$('condition').value='Near Mint';$('graded').value='no';$('gradingOptions').classList.remove('show');$('q').focus()};$('clearAll').onclick=()=>{if(confirm('Weet je zeker dat je de hele kaartenlijst wilt leegmaken?')){store.favs=[];renderFavorites()}};
