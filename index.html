@@ -645,8 +645,13 @@ function zcTcgplayerVariantBlock(pricing,selectedVariant='Standard'){
   const p=pricing?.tcgplayer||pricing||null;
   if(!p)return null;
   const wanted=(selectedVariant||'Standard').toLowerCase();
-  const keys= wanted==='standard'||wanted.includes('basic')||wanted.includes('normaal')
-    ? ['normal']
+  const keys= wanted==='automatisch'||wanted==='automatic'
+    // Veel oudere Ultra Rares, waaronder GEN 12, hebben alleen een
+    // Holofoil-prijs. Automatisch moet dan de werkelijk beschikbare uitvoering
+    // gebruiken in plaats van de aanwezige prijs volledig over te slaan.
+    ? ['normal','holofoil','reverseHolofoil']
+    : wanted==='standard'||wanted.includes('basic')||wanted.includes('normaal')
+      ? ['normal']
     : wanted.includes('reverse')
       ? ['reverseHolofoil']
       : wanted.includes('holo')
