@@ -367,6 +367,7 @@ const SET_CODE_TO_ID={
 const ZC_SET_CROSSWALK={
   BRS:[['swsh9','swsh9','Brilliant Stars'],['swsh9tg','swsh9tg','Brilliant Stars Trainer Gallery','TG']],
   CRZ:[['swsh12.5','swsh12pt5','Crown Zenith'],['swsh12.5gg','swsh12pt5gg','Crown Zenith Galarian Gallery','GG']],
+  GEN:[['xy9','g1','Generations']],
   MEW:[['sv03.5','sv3pt5','151']],PRE:[['sv08.5','sv8pt5','Prismatic Evolutions']],
   PFL:[['me02','me2','Phantasmal Flames']],MEG:[['me01','me1','Mega Evolution']],POR:[['me03','me3','Perfect Order']],
   SVI:[['sv01','sv1','Scarlet & Violet']],PAL:[['sv02','sv2','Paldea Evolved']],OBF:[['sv03','sv3','Obsidian Flames']],
@@ -1465,12 +1466,28 @@ async function zcResolveUnknownSetCode(code){
 
 async function zcAttachPokemonFallback(card,parsed){
   try{
-    const setId=card?.pokemonSetId||parsed?.pokemonSetId||parsed?.setId||card?.setId||'';
+    // TCGdex and PokemonTCG do not always use the same set ID. For example,
+    // Generations is `xy9` in TCGdex but `g1` in PokemonTCG. Prefer the ID
+    // resolved for the pricing source, otherwise pair both catalogs by name.
+    let setId=parsed?.pokemonSetId||'';
+    if(!setId){
+      const wantedName=zcNormSetName(parsed?.resolvedSetName||card?.set||'');
+      const paired=ZC_GLOBAL_CATALOG.find(e=>
+        e.source==='pokemontcg' && wantedName && zcNormSetName(e.name||'')===wantedName
+      );
+      setId=paired?.id||card?.pokemonSetId||parsed?.setId||card?.setId||'';
+    }
     const num=card?.number||parsed?.number||'';
     if(!setId||!num)return card;
-    const q=`set.id:${setId} number:${num}`;
+    // Promo numbers carry their era prefix in PokemonTCG (e.g. XY69), while
+    // users usually enter only 69.
+    const promoPrefix={swshp:'SWSH',smp:'SM',xyp:'XY',bwp:'BW',dpp:'DP',np:'NP'}[String(setId).toLowerCase()];
+    const apiNumber=promoPrefix&&/^\d+$/.test(String(num))
+      ? promoPrefix+String(parseInt(num,10))
+      : num;
+    const q=`set.id:${setId} number:${apiNumber}`;
     const d=await zcFetchJson(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=10`);
-    const hit=(d.data||[]).find(x=>zcNormNumber(x.number||'')===zcNormNumber(num))||(d.data||[])[0];
+    const hit=(d.data||[]).find(x=>zcNormNumber(x.number||'')===zcNormNumber(apiNumber))||(d.data||[])[0];
     if(!hit)return card;
     const imgs=[hit.images?.small,hit.images?.large].filter(Boolean);
     card.imageCandidates=[...new Set([...(card.imageCandidates||[]),...imgs])];
