@@ -295,7 +295,7 @@
 <script>
 // Vul na het publiceren van de beveiligde Worker alleen de URL hieronder in.
 // Plaats hier NOOIT de OpenAI API-key of de scanner-PIN.
-const ZC_SCANNER_ENDPOINT='VUL_HIER_DE_CLOUDFLARE_WORKER_URL_IN';
+const ZC_SCANNER_ENDPOINT='https://zamexcards-kaartscanner.zameykat.workers.dev';
 const $=id=>document.getElementById(id); const euro=n=>(n===null||n===undefined||n===''||!Number.isFinite(Number(n)))?'Niet beschikbaar':new Intl.NumberFormat('nl-NL',{style:'currency',currency:'EUR'}).format(Number(n)); const money=(n,c='EUR')=>(n===null||n===undefined||n===''||!Number.isFinite(Number(n)))?'Niet beschikbaar':new Intl.NumberFormat('nl-NL',{style:'currency',currency:c}).format(Number(n));
 let currentCards=[],selectedCard=null,selectedAlertCard=null,stream=null,ocrBusy=false;
 const store={get favs(){try{return JSON.parse(localStorage.getItem('zc_favs')||'[]')}catch{return[]}},set favs(v){localStorage.setItem('zc_favs',JSON.stringify(v))},get alerts(){try{return JSON.parse(localStorage.getItem('zc_alerts')||'[]')}catch{return[]}},set alerts(v){localStorage.setItem('zc_alerts',JSON.stringify(v))}};
