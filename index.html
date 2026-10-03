@@ -366,15 +366,22 @@ const SET_CODE_TO_ID={
 // catalog still adds older and newly released sets automatically.
 const ZC_SET_CROSSWALK={
   BRS:[['swsh9','swsh9','Brilliant Stars'],['swsh9tg','swsh9tg','Brilliant Stars Trainer Gallery','TG']],
+  ASR:[['swsh10','swsh10','Astral Radiance'],['swsh10tg','swsh10tg','Astral Radiance Trainer Gallery','TG']],
+  LOR:[['swsh11','swsh11','Lost Origin'],['swsh11tg','swsh11tg','Lost Origin Trainer Gallery','TG']],
+  SIT:[['swsh12','swsh12','Silver Tempest'],['swsh12tg','swsh12tg','Silver Tempest Trainer Gallery','TG']],
   CRZ:[['swsh12.5','swsh12pt5','Crown Zenith'],['swsh12.5gg','swsh12pt5gg','Crown Zenith Galarian Gallery','GG']],
+  SHF:[['swsh4.5','swsh45','Shining Fates'],['swsh4.5sv','swsh45sv','Shining Fates Shiny Vault','SV']],
+  CEL:[['swsh7.5','cel25','Celebrations']],CELC:[['swsh7.5c','cel25c','Celebrations: Classic Collection']],
   GEN:[['g1','g1','Generations']],
   MEW:[['sv03.5','sv3pt5','151']],PRE:[['sv08.5','sv8pt5','Prismatic Evolutions']],
   PFL:[['me02','me2','Phantasmal Flames']],MEG:[['me01','me1','Mega Evolution']],POR:[['me03','me3','Perfect Order']],
   SVI:[['sv01','sv1','Scarlet & Violet']],PAL:[['sv02','sv2','Paldea Evolved']],OBF:[['sv03','sv3','Obsidian Flames']],
   PAR:[['sv04','sv4','Paradox Rift']],PAF:[['sv04.5','sv4pt5','Paldean Fates']],TEF:[['sv05','sv5','Temporal Forces']],
   TWM:[['sv06','sv6','Twilight Masquerade']],SFA:[['sv06.5','sv6pt5','Shrouded Fable']],SCR:[['sv07','sv7','Stellar Crown']],SSP:[['sv08','sv8','Surging Sparks']],
-  ASR:[['swsh10','swsh10','Astral Radiance']],LOR:[['swsh11','swsh11','Lost Origin']],SIT:[['swsh12','swsh12','Silver Tempest']],
   FST:[['swsh8','swsh8','Fusion Strike']],EVS:[['swsh7','swsh7','Evolving Skies']],CRE:[['swsh6','swsh6','Chilling Reign']],BST:[['swsh5','swsh5','Battle Styles']],
+  VIV:[['swsh4','swsh4','Vivid Voltage']],CPA:[['swsh3.5','swsh35','Champion\'s Path']],DAA:[['swsh3','swsh3','Darkness Ablaze']],
+  RCL:[['swsh2','swsh2','Rebel Clash']],SSH:[['swsh1','swsh1','Sword & Shield']],CEC:[['sm12','sm12','Cosmic Eclipse']],
+  EVO:[['xy12','xy12','Evolutions']],
   SWSH:[['swshp','swshp','SWSH Black Star Promos']],SWSHP:[['swshp','swshp','SWSH Black Star Promos']],
   SMP:[['smp','smp','SM Black Star Promos']],XYP:[['xyp','xyp','XY Black Star Promos']],
   BWP:[['bwp','bwp','BW Black Star Promos']],DPP:[['dpp','dpp','DP Black Star Promos']],NP:[['np','np','Nintendo Black Star Promos']],
@@ -1195,15 +1202,6 @@ function zcOfficialEnglishSetEntry(entry){
     )
   );
 
-  // A few sources can vary slightly in punctuation/subtitles.
-  if(!official && nameKey){
-    official=ZC_GLOBAL_CATALOG.find(e=>{
-      if(e.source!=='pokemontcg'||!e.ptcgoCode)return false;
-      const n=zcCatalogNorm(e.name||'');
-      return n===nameKey || (n.length>4 && nameKey.length>4 && (n.includes(nameKey)||nameKey.includes(n)));
-    });
-  }
-
   return official||null;
 }
 
@@ -1260,6 +1258,12 @@ function zcSetChoiceValue(entry){
     bwp:'BWP',dpp:'DPP',np:'NP'
   }[String(entry?.id||'').toLowerCase()];
   if(promoCode)return promoCode;
+
+  // Classic Collection overlaps the normal Celebrations numbering. Keep a
+  // unique internal search value when it is chosen from the menu.
+  const setName=zcCatalogNorm(entry?.name||'');
+  if(setName==='celebrations classic collection')return 'CELC';
+
   return zcRegionalSetCode(entry);
 }
 function zcSetDropdownItems(){
@@ -1376,7 +1380,7 @@ async function zcResolveSetFromCatalog(query,cardNumber=''){
 
   const direct=zcSelectedLanguage()==='English'?ZC_SET_CROSSWALK[qu]:null;
   if(direct?.length){
-    const prefix=String(cardNumber||'').toUpperCase().match(/^(TG|GG)/)?.[1]||'';
+    const prefix=String(cardNumber||'').toUpperCase().match(/^(TG|GG|SV)/)?.[1]||'';
     const row=direct.find(x=>x[3]===prefix)||direct.find(x=>!x[3])||direct[0];
     return {code:qu,tcgdexId:row[0],pokemonId:row[1],name:row[2],lang:'en',entry:null};
   }
@@ -1391,14 +1395,16 @@ async function zcResolveSetFromCatalog(query,cardNumber=''){
   );
   if(matches.length){
     matches.sort((a,b)=>{
-      const gallery=String(cardNumber||'').toUpperCase().match(/^(TG|GG)/)?.[1]||'';
+      const gallery=String(cardNumber||'').toUpperCase().match(/^(TG|GG|SV)/)?.[1]||'';
       const galleryScore=e=>{
         const text=zcCatalogNorm(`${e.id||''} ${e.name||''}`);
         const isTG=/trainer gallery|tg$/.test(text);
         const isGG=/galarian gallery|gg$/.test(text);
+        const isSV=/shiny vault|sv$/.test(text);
         if(gallery==='TG')return isTG?0:2;
         if(gallery==='GG')return isGG?0:2;
-        return (isTG||isGG)?1:0;
+        if(gallery==='SV')return isSV?0:2;
+        return (isTG||isGG||isSV)?1:0;
       };
       const ag=galleryScore(a),bg=galleryScore(b);
       if(ag!==bg)return ag-bg;
