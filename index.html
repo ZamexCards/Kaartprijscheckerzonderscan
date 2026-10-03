@@ -714,7 +714,7 @@ function zcNearMintReference(card,selectedVariant='Standard'){
   return Math.max(...[checkedLow,averageFloor].filter(v=>v!=null));
 }
 function zcBestVisiblePrice(card,selectedVariant='Standard'){
-  const found=(value,currency,label,source)=>({value:value==null?null:zcApplyCondition(value*.93),currency,label,source});
+  const found=(value,currency,label,source)=>({value:value==null?null:zcApplyCondition(value*.95),currency,label,source});
   if(document.getElementById('graded')?.value!=='yes'){
     const checked=zcNearMintReference(card,selectedVariant);
     if(checked!=null)return found(checked,'EUR','Actuele marktwaarde','Cardmarket EX+ met controle op 30-daags gemiddelde');
